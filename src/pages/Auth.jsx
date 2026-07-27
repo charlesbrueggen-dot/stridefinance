@@ -8,21 +8,55 @@ export default function Auth() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [needsConfirmation, setNeedsConfirmation] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  const switchMode = newMode => {
+    setMode(newMode)
+    setError('')
+    setMessage('')
+    setNeedsConfirmation(false)
+  }
 
   const handleSubmit = async e => {
     e.preventDefault()
     setLoading(true)
     setError('')
     setMessage('')
+    setNeedsConfirmation(false)
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
+      if (error) {
+        setError(error.message)
+        if (error.message.toLowerCase().includes('confirm')) setNeedsConfirmation(true)
+      }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      })
       if (error) setError(error.message)
-      else setMessage('Check your email for a confirmation link!')
+      else {
+        setMessage('Check your email for a confirmation link!')
+        setNeedsConfirmation(true)
+      }
     }
     setLoading(false)
+  }
+
+  const handleResend = async () => {
+    setResending(true)
+    setError('')
+    setMessage('')
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: window.location.origin },
+    })
+    if (error) setError(error.message)
+    else setMessage('Confirmation email resent — check your inbox.')
+    setResending(false)
   }
 
   return (
@@ -39,12 +73,12 @@ export default function Auth() {
           {/* Tabs */}
           <div className="flex rounded-xl p-1 mb-7" style={{ background: 'rgba(0,0,0,0.15)' }}>
             <button
-              onClick={() => setMode('login')}
+              onClick={() => switchMode('login')}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all"
               style={{ background: mode === 'login' ? 'rgba(255,255,255,0.2)' : 'transparent', color: mode === 'login' ? 'white' : 'rgba(255,255,255,0.55)' }}
             >Sign In</button>
             <button
-              onClick={() => setMode('signup')}
+              onClick={() => switchMode('signup')}
               className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all"
               style={{ background: mode === 'signup' ? 'rgba(255,255,255,0.2)' : 'transparent', color: mode === 'signup' ? 'white' : 'rgba(255,255,255,0.55)' }}
             >Create Account</button>
@@ -62,6 +96,18 @@ export default function Auth() {
 
             {error && <div className="mb-4 p-3 rounded-xl text-sm font-medium" style={{ background: 'var(--negative-bg)', border: '1px solid var(--negative)', color: 'var(--negative)' }}>{error}</div>}
             {message && <div className="mb-4 p-3 rounded-xl text-sm font-medium" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}>{message}</div>}
+
+            {needsConfirmation && (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resending || !email}
+                className="mb-4 w-full text-center text-sm font-semibold underline"
+                style={{ color: 'rgba(255,255,255,0.85)' }}
+              >
+                {resending ? 'Resending...' : 'Resend confirmation email'}
+              </button>
+            )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-3 text-base">
               {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Create Account'}
