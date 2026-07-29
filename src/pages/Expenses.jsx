@@ -16,6 +16,7 @@ import { useAuth } from '../App'
 import { useTransactions } from '../hooks/useTransactions'
 import { fmtCurrency as fmt } from '../lib/format'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
+import MerchantLogo from '../components/MerchantLogo'
 
 const today = () => new Date().toISOString().split('T')[0]
 const QUICK_AMOUNTS = [1, 5, 10, 50, 100, 500]
@@ -267,9 +268,7 @@ export default function Expenses() {
             return (
               <div key={`${item._source}-${item.id}`} className="list-row">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="icon-chip">
-                    {isAccTxn ? <CreditCard size={17} /> : <Receipt size={17} />}
-                  </div>
+                  <MerchantLogo name={item.merchant || item.description} FallbackIcon={isAccTxn ? CreditCard : Receipt} size={36} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-bold text-primary text-sm truncate">{item.description}</p>

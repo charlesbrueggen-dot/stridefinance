@@ -13,6 +13,7 @@ import { useDarkMode } from '../hooks/useDarkMode'
 import { useTransactions } from '../hooks/useTransactions'
 import { bucketMonthlyTotals, computeSavingsRate } from '../lib/savingsRate'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SectionTitle } from '../components/ui'
+import MerchantLogo from '../components/MerchantLogo'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -323,10 +324,10 @@ export default function Dashboard() {
               {recentActivity.map(item => (
                 <div key={item.id + item.kind} className="list-row">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: item.kind === 'income' ? 'var(--positive-bg)' : 'var(--negative-bg)', color: item.kind === 'income' ? 'var(--positive)' : 'var(--negative)' }}>
-                      {item.kind === 'income' ? <ArrowUpRight size={15} /> : <ArrowDownRight size={15} />}
-                    </div>
+                    <MerchantLogo name={item.source || item.description} size={36}
+                      FallbackIcon={item.kind === 'income' ? ArrowUpRight : ArrowDownRight}
+                      fallbackBg={item.kind === 'income' ? 'var(--positive-bg)' : 'var(--negative-bg)'}
+                      fallbackColor={item.kind === 'income' ? 'var(--positive)' : 'var(--negative)'} />
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-primary truncate">{item.source || item.description}</p>
                       <p className="text-xs text-muted">{item.date}</p>

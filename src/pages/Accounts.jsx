@@ -17,6 +17,7 @@ import Import from './Import'
 import ProGate from '../components/ProGate'
 import { PageHeader, StatCard, EmptyState, PageSkeleton } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
+import MerchantLogo from '../components/MerchantLogo'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -621,10 +622,8 @@ export default function Accounts() {
                   return (
                     <div key={txn.id} className="card p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: KIND_BG[txn.kind], color: KIND_COLOR[txn.kind] }}>
-                          {(() => { const KIcon = KIND_ICON[txn.kind]; return <KIcon size={16} /> })()}
-                        </div>
+                        <MerchantLogo name={txn.merchant || txn.description} FallbackIcon={KIND_ICON[txn.kind]}
+                          fallbackBg={KIND_BG[txn.kind]} fallbackColor={KIND_COLOR[txn.kind]} size={36} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold text-sm text-primary truncate">{txn.description}</p>

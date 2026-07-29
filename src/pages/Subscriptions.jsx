@@ -16,6 +16,7 @@ import { fmtCurrency as fmt } from '../lib/format'
 import ProGate from '../components/ProGate'
 import { PageHeader, EmptyState, PageSkeleton } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
+import MerchantLogo from '../components/MerchantLogo'
 
 function RenewalBadge({ date }) {
   const d = daysUntil(date)
@@ -26,68 +27,12 @@ function RenewalBadge({ date }) {
   return <span className="text-xs text-muted">Renews {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
 }
 
-// ── Company logos ────────────────────────────────────────────────────────────
-// Well-known merchants map to their real domain; anything else falls back to a
-// guessed "<name>.com". Icons come from Google's public favicon service, and if
-// nothing loads we quietly show the category icon instead.
-const LOGO_DOMAINS = {
-  netflix: 'netflix.com', spotify: 'spotify.com', hulu: 'hulu.com',
-  'disney+': 'disneyplus.com', disney: 'disneyplus.com', 'disney plus': 'disneyplus.com',
-  'amazon prime': 'amazon.com', prime: 'amazon.com', amazon: 'amazon.com', audible: 'audible.com',
-  'youtube premium': 'youtube.com', youtube: 'youtube.com', 'youtube tv': 'tv.youtube.com',
-  'apple music': 'apple.com', 'apple tv': 'apple.com', 'apple tv+': 'apple.com', icloud: 'apple.com', apple: 'apple.com',
-  'hbo max': 'max.com', max: 'max.com', hbo: 'max.com',
-  'paramount+': 'paramountplus.com', paramount: 'paramountplus.com',
-  peacock: 'peacocktv.com', crunchyroll: 'crunchyroll.com', twitch: 'twitch.tv',
-  adobe: 'adobe.com', 'creative cloud': 'adobe.com', photoshop: 'adobe.com',
-  dropbox: 'dropbox.com', notion: 'notion.so', canva: 'canva.com', github: 'github.com',
-  microsoft: 'microsoft.com', 'microsoft 365': 'microsoft.com', 'office 365': 'microsoft.com', xbox: 'xbox.com',
-  'google one': 'google.com', google: 'google.com', playstation: 'playstation.com',
-  'ps plus': 'playstation.com', nintendo: 'nintendo.com', chatgpt: 'openai.com', openai: 'openai.com',
-  'planet fitness': 'planetfitness.com', peloton: 'onepeloton.com', equinox: 'equinox.com',
-  doordash: 'doordash.com', dashpass: 'doordash.com', instacart: 'instacart.com',
-  'uber one': 'uber.com', uber: 'uber.com', 'walmart+': 'walmart.com', walmart: 'walmart.com',
-  costco: 'costco.com', 'new york times': 'nytimes.com', nyt: 'nytimes.com',
-  discord: 'discord.com', 'discord nitro': 'discord.com', duolingo: 'duolingo.com',
-  strava: 'strava.com', patreon: 'patreon.com', 'linkedin premium': 'linkedin.com',
-}
-
-function logoDomain(name = '') {
-  const key = name.trim().toLowerCase()
-  if (LOGO_DOMAINS[key]) return LOGO_DOMAINS[key]
-  // Partial match ("Netflix.com Bill" → netflix)
-  const hit = Object.keys(LOGO_DOMAINS).find(k => key.includes(k))
-  if (hit) return LOGO_DOMAINS[hit]
-  // Last resort: guess <name>.com from the first word
-  const first = key.replace(/[^a-z0-9 ]/g, '').split(' ')[0]
-  return first ? `${first}.com` : null
-}
-
+// Thin wrapper over the shared MerchantLogo — keeps every call site below
+// unchanged (`<SubLogo name=... category=... />`) while the logo lookup and
+// favicon rendering live in one shared place (src/lib/merchantLogo.js +
+// src/components/MerchantLogo.jsx) that Accounts/Expenses/Dashboard also use.
 function SubLogo({ name, category, size = 36 }) {
-  const [failed, setFailed] = useState(false)
-  const domain = logoDomain(name)
-  const CIcon = CATEGORY_ICON[category] || Repeat
-  if (!domain || failed) {
-    return (
-      <div className="icon-chip flex-shrink-0" style={{ width: size, height: size }}>
-        <CIcon size={size * 0.45} />
-      </div>
-    )
-  }
-  return (
-    <div className="flex-shrink-0 flex items-center justify-center rounded-xl overflow-hidden"
-      style={{ width: size, height: size, background: '#fff', border: '1px solid var(--card-border)' }}>
-      <img
-        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-        alt=""
-        width={size * 0.62}
-        height={size * 0.62}
-        style={{ objectFit: 'contain' }}
-        onError={() => setFailed(true)}
-        loading="lazy"
-      />
-    </div>
-  )
+  return <MerchantLogo name={name} FallbackIcon={CATEGORY_ICON[category] || Repeat} size={size} />
 }
 
 const blankForm = () => ({
