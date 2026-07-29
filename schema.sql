@@ -312,3 +312,26 @@ create table if not exists tracked_subscriptions (
 alter table tracked_subscriptions enable row level security;
 create policy "Users manage own tracked subscriptions" on tracked_subscriptions for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- =============================================
+-- BUDGETS (per category+subcategory monthly $ limit, Goals & Budgets page)
+-- Existed live but was missing from this file (same situation as
+-- account_transactions above) — reverse-engineered via list_tables on
+-- 2026-07-28, at which point the `rollover` column below was also added.
+-- =============================================
+create table if not exists budgets (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  category text not null,
+  subcategory text not null,
+  monthly_limit numeric not null,
+  created_at timestamptz default now()
+);
+alter table budgets enable row level security;
+create policy "Users manage own budgets" on budgets for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Envelope-budgeting rollover (migration: add_budgets_rollover_column, applied 2026-07-28).
+-- When true, Budgets.jsx carries a category's unspent (or overspent) amount into the next
+-- month's effective limit, computed on the fly from spend history — no separate ledger table.
+alter table budgets add column if not exists rollover boolean not null default false;
