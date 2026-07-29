@@ -5,7 +5,8 @@
 // provider — so we deep-link to their account page and let the user
 // confirm once they've finished it there.
 import { useState, useEffect, useMemo } from 'react'
-import { Repeat, ArrowUp, ArrowUpRight, X, CalendarDays } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Repeat, ArrowUp, ArrowUpRight, X, CalendarDays, MessageCircle } from 'lucide-react'
 import { useAuth } from '../App'
 import { supabase } from '../lib/supabase'
 import { useTransactions } from '../hooks/useTransactions'
@@ -14,6 +15,7 @@ import {
   CATEGORIES, CATEGORY_ICON,
 } from '../hooks/useSubscriptions'
 import { fmtCurrency as fmt } from '../lib/format'
+import { negotiationTips, negotiationCoachPrompt } from '../lib/negotiationTips'
 import ProGate from '../components/ProGate'
 import { PageHeader, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
@@ -53,6 +55,7 @@ export default function Subscriptions() {
   const { isPro, proLoading } = useIsPro(user.id)
   const [cancelTarget, setCancelTarget] = useState(null) // { detected } or { tracked }
   const [detailSub, setDetailSub] = useState(null)       // tracked sub shown in the detail popup
+  const [showTips, setShowTips] = useState(false)        // negotiation-tips panel inside that popup
   const [showForm, setShowForm] = useState(false)
   const [editingSub, setEditingSub] = useState(null)
   const [form, setForm] = useState(blankForm())
@@ -208,7 +211,7 @@ export default function Subscriptions() {
           {/* Condensed rows — tap one for the full details popup */}
           <div className="card px-4 py-1">
             {activeSubs.map(sub => (
-              <div key={sub.id} className="list-row cursor-pointer" onClick={() => setDetailSub(sub)}>
+              <div key={sub.id} className="list-row cursor-pointer" onClick={() => { setDetailSub(sub); setShowTips(false) }}>
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <SubLogo name={sub.name} category={sub.category} />
                   <div className="min-w-0">
@@ -293,6 +296,29 @@ export default function Subscriptions() {
                 </div>
               ))}
             </div>
+
+            <button onClick={() => setShowTips(v => !v)} className="btn-secondary w-full justify-center mb-3">
+              <MessageCircle size={15} /> {showTips ? 'Hide negotiation tips' : 'Get negotiation tips'}
+            </button>
+
+            {showTips && (
+              <div className="rounded-2xl p-4 mb-5 text-sm" style={{ background: 'var(--info-bg)', border: '1px solid var(--info)' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: 'var(--info)' }}>
+                  We can't call {detailSub.name} for you — but here's a script:
+                </p>
+                <ul className="space-y-1.5 mb-3">
+                  {negotiationTips(detailSub).map((tip, i) => (
+                    <li key={i} className="flex gap-2 text-primary text-xs">
+                      <span className="flex-shrink-0">•</span><span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link to={`/coach?ask=${encodeURIComponent(negotiationCoachPrompt(detailSub))}`}
+                  className="text-xs font-bold no-underline inline-block hover:opacity-80" style={{ color: 'var(--info)' }}>
+                  Ask AI Coach for a personalized script →
+                </Link>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <button onClick={() => { setDetailSub(null); openEdit(detailSub) }} className="btn-secondary justify-center">Edit</button>

@@ -5,7 +5,7 @@ import { useAuth } from '../App'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import {
   BarChart3, Plus, Sparkle, ArrowRight, Download, Target, TrendingUp,
-  ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, Repeat, HandCoins,
+  ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, Repeat, HandCoins, Bell,
 } from 'lucide-react'
 import { pieStrokeProps, PIE_COLORS_LIGHT, PIE_COLORS_DARK, renderActivePieSector, pieCellOpacity, sortByValueDesc } from '../lib/chartTheme'
 import { fmtCurrency as fmt } from '../lib/format'
@@ -18,7 +18,7 @@ import MonthFlipper, { monthKeyNow, monthLabel } from '../components/MonthFlippe
 import SetupChecklist from '../components/SetupChecklist'
 import InsightsCard from '../components/InsightsCard'
 import { buildInsights } from '../lib/insights'
-import { useSubscriptions } from '../hooks/useSubscriptions'
+import { useSubscriptions, daysUntil } from '../hooks/useSubscriptions'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -125,6 +125,8 @@ export default function Dashboard() {
   const { rate: savingsPct } = computeSavingsRate(monthlyTotals)
 
   const activeSubs = useMemo(() => trackedSubs.filter(s => s.status === 'active'), [trackedSubs])
+  const renewingSoonSubs   = useMemo(() => activeSubs.filter(s => { const d = daysUntil(s.next_billing_date); return d !== null && d <= 7 }), [activeSubs])
+  const priceIncreasedSubs = useMemo(() => activeSubs.filter(s => s.previous_amount != null), [activeSubs])
   const insights = useMemo(
     () => buildInsights({ allExpenses, viewMonth, goals, activeSubs, savingsPct }),
     [allExpenses, viewMonth, goals, activeSubs, savingsPct]
@@ -207,6 +209,29 @@ export default function Dashboard() {
           <ArrowRight size={18} style={{ color: dark ? '#10b981' : 'rgba(255,255,255,0.8)' }} />
         </div>
       </Link>
+
+      {/* ── SUBSCRIPTION ALERTS ── */}
+      {(renewingSoonSubs.length > 0 || priceIncreasedSubs.length > 0) && (
+        <Link to="/subscriptions" className="no-underline block mb-4">
+          <div className="card p-4 flex items-center justify-between cursor-pointer transition-transform hover:-translate-y-0.5"
+            style={{ borderLeft: '3px solid var(--warning)' }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="icon-chip flex-shrink-0" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
+                <Bell size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-sm text-primary">Subscription alerts</p>
+                <p className="text-xs text-muted truncate">
+                  {renewingSoonSubs.length > 0 && `${renewingSoonSubs.length} renewing within 7 days`}
+                  {renewingSoonSubs.length > 0 && priceIncreasedSubs.length > 0 && ' · '}
+                  {priceIncreasedSubs.length > 0 && `${priceIncreasedSubs.length} price increase${priceIncreasedSubs.length !== 1 ? 's' : ''}`}
+                </p>
+              </div>
+            </div>
+            <ArrowRight size={16} className="text-muted flex-shrink-0" />
+          </div>
+        </Link>
+      )}
 
       {/* ── GET SET UP CHECKLIST ── */}
       <SetupChecklist
