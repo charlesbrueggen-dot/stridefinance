@@ -19,6 +19,7 @@ import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../comp
 import { useIsPro } from '../hooks/useIsPro'
 import MerchantLogo from '../components/MerchantLogo'
 import { DATE_RANGE_OPTIONS, inDateRange } from '../lib/dateRange'
+import SwipeableRow from '../components/SwipeableRow'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -654,7 +655,8 @@ export default function Accounts() {
                 {visibleTxns.map(txn => {
                   const acc = accounts.find(a => a.id === txn.account_id)
                   return (
-                    <div key={txn.id} className="card p-4 flex items-center justify-between gap-3">
+                    <SwipeableRow key={txn.id} onEdit={() => openEditTxn(txn)} onDelete={() => handleDeleteTxn(txn.id)}>
+                    <div className="card p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <MerchantLogo name={txn.merchant || txn.description} FallbackIcon={KIND_ICON[txn.kind]}
                           fallbackBg={KIND_BG[txn.kind]} fallbackColor={KIND_COLOR[txn.kind]} size={36} />
@@ -698,6 +700,7 @@ export default function Accounts() {
                         <button onClick={() => handleDeleteTxn(txn.id)} className="text-muted hover:text-red-500"><Trash2 size={14} /></button>
                       </div>
                     </div>
+                    </SwipeableRow>
                   )
                 })}
               </div>

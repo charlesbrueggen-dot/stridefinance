@@ -18,6 +18,7 @@ import { fmtCurrency as fmt } from '../lib/format'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import MerchantLogo from '../components/MerchantLogo'
 import { DATE_RANGE_OPTIONS, inDateRange } from '../lib/dateRange'
+import SwipeableRow from '../components/SwipeableRow'
 
 const today = () => new Date().toISOString().split('T')[0]
 const QUICK_AMOUNTS = [1, 5, 10, 50, 100, 500]
@@ -268,11 +269,13 @@ export default function Expenses() {
         </div>
       ) : (
         <div className="card px-4 py-1">
-          {filtered.map(item => {
+          {filtered.map((item, idx) => {
             const isRecurring = item.frequency && item.frequency !== 'none'
             const isAccTxn    = item._source === 'account_txn'
             return (
-              <div key={`${item._source}-${item.id}`} className="list-row">
+              <SwipeableRow key={`${item._source}-${item.id}`} isLast={idx === filtered.length - 1}
+                onEdit={() => openEdit(item)} onDelete={() => handleDelete(item)}>
+              <div className="list-row">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <MerchantLogo name={item.merchant || item.description} FallbackIcon={isAccTxn ? CreditCard : Receipt} size={36} />
                   <div className="min-w-0">
@@ -311,6 +314,7 @@ export default function Expenses() {
                   <button onClick={() => handleDelete(item)} className="transition-colors p-1" style={{ color: 'var(--negative-strong)' }}><Trash2 size={14} /></button>
                 </div>
               </div>
+              </SwipeableRow>
             )
           })}
         </div>
