@@ -40,6 +40,30 @@ const TYPE_ICONS = {
   Investment: TrendingUp, Cash: Banknote, Other: Landmark,
 }
 
+// Balances below this on a non-credit-card account get a "Low balance" badge —
+// credit cards are excluded since a low/zero balance there is good, not risky.
+const LOW_BALANCE_THRESHOLD = 100
+function balanceStatus(acc) {
+  if (acc.type === 'Credit Card') return null
+  const bal = parseFloat(acc.balance) || 0
+  if (bal < 0) return { label: 'Negative balance', tone: 'negative' }
+  if (bal < LOW_BALANCE_THRESHOLD) return { label: 'Low balance', tone: 'warning' }
+  return null
+}
+
+function BalanceBadge({ acc }) {
+  const status = balanceStatus(acc)
+  if (!status) return null
+  const color = status.tone === 'negative' ? 'var(--negative)' : 'var(--warning)'
+  const bg    = status.tone === 'negative' ? 'var(--negative-bg)' : 'var(--warning-bg)'
+  return (
+    <span className="text-xs px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1 flex-shrink-0"
+      style={{ background: bg, color }}>
+      <AlertTriangle size={11} /> {status.label}
+    </span>
+  )
+}
+
 const KIND_COLOR  = { expense: 'var(--negative)', income: 'var(--positive)', transfer: 'var(--warning)' }
 const KIND_STRONG = { expense: 'var(--negative-strong)', income: 'var(--positive-strong)', transfer: 'var(--warning-strong)' }
 const KIND_BG     = { expense: 'var(--negative-bg)', income: 'var(--positive-bg)', transfer: 'var(--warning-bg)' }
@@ -510,12 +534,13 @@ export default function Accounts() {
                         <TypeIcon type={acc.type} size={20} />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-primary text-sm">{acc.name}</p>
                           <span className="text-xs px-1.5 py-0.5 rounded font-medium"
                             style={{ background: 'var(--positive-bg)', color: 'var(--positive)' }}>
                             auto
                           </span>
+                          <BalanceBadge acc={acc} />
                         </div>
                         <p className="text-xs text-muted">{acc.type}{acc.institution ? ` · ${acc.institution}` : ''}{acc.card_last4 ? ` · ••${acc.card_last4}` : ''}</p>
                       </div>
@@ -548,7 +573,10 @@ export default function Accounts() {
                         <TypeIcon type={acc.type} size={20} />
                       </div>
                       <div>
-                        <p className="font-semibold text-primary text-sm">{acc.name}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-semibold text-primary text-sm">{acc.name}</p>
+                          <BalanceBadge acc={acc} />
+                        </div>
                         <p className="text-xs text-muted">{acc.type}{acc.institution ? ` · ${acc.institution}` : ''}{acc.card_last4 ? ` · ••${acc.card_last4}` : ''}</p>
                       </div>
                     </div>
