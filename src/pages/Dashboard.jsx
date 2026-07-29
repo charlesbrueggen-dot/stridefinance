@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [income,   setIncome]   = useState([])
   const [expenses, setExpenses] = useState([])
   const [goals,    setGoals]    = useState([])
+  const [budgets,  setBudgets]  = useState([])
   const [loading,  setLoading]  = useState(true)
   const dark = useDarkMode()
   const [pieActiveIndex, setPieActiveIndex] = useState(null)
@@ -62,14 +63,16 @@ export default function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      const [{ data: inc }, { data: exp }, { data: gls }] = await Promise.all([
+      const [{ data: inc }, { data: exp }, { data: gls }, { data: bud }] = await Promise.all([
         supabase.from('income').select('*').eq('user_id', user.id),
         supabase.from('expenses').select('*').eq('user_id', user.id),
         supabase.from('goals').select('*').eq('user_id', user.id),
+        supabase.from('budgets').select('*').eq('user_id', user.id),
       ])
       setIncome(inc || [])
       setExpenses(exp || [])
       setGoals(gls || [])
+      setBudgets(bud || [])
       setLoading(false)
     }
     load()
@@ -93,6 +96,18 @@ export default function Dashboard() {
   const monthExp      = allExpenses.filter(e => e.date?.slice(0, 7) === viewMonth).reduce((s, e) => s + parseFloat(e.amount), 0)
   const monthInc      = allIncome.filter(i => i.date?.slice(0, 7) === viewMonth).reduce((s, i) => s + parseFloat(i.amount), 0)
   const monthNet      = monthInc - monthExp
+
+  // ── Spending Plan bar (Simplifi-style) ─────────────────────────────────────
+  // One bar, three segments of the month's income: spent so far, budgeted-but-
+  // not-yet-spent (from Goals & Budgets), and whatever's left unassigned.
+  const totalBudgeted     = budgets.reduce((s, b) => s + Number(b.monthly_limit || 0), 0)
+  const planBase          = monthInc > 0 ? monthInc : Math.max(monthExp, totalBudgeted, 1)
+  const planOverspent      = monthInc > 0 && monthExp > monthInc
+  const remainingBudgeted = Math.max(0, totalBudgeted - monthExp)
+  const planSpentPct      = Math.min(100, (monthExp / planBase) * 100)
+  const planBudgetedPct   = Math.min(100 - planSpentPct, (remainingBudgeted / planBase) * 100)
+  const planLeftoverPct   = Math.max(0, 100 - planSpentPct - planBudgetedPct)
+  const planLeftoverAmt   = Math.max(0, monthInc - monthExp - remainingBudgeted)
 
   // Trailing-6-month average savings rate — the same shared calculation Analytics uses by
   // default, so both pages agree instead of Dashboard's old all-time/manual-only figure
@@ -200,6 +215,39 @@ export default function Dashboard() {
         <StatCard label="Savings rate" value={`${savingsPct}%`} Icon={PiggyBank}
           sub={`Avg. last ${SAVINGS_RATE_MONTHS} months`} onClick={() => navigate('/analytics')} />
       </div>
+
+      {/* ── SPENDING PLAN BAR ── */}
+      {monthInc > 0 && (
+        <div className="card p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-black text-primary">Spending Plan</p>
+            <p className="text-xs text-muted">{fmt(monthInc)} income {isCurrentMonth ? 'this month' : `in ${monthLabel(viewMonth)}`}</p>
+          </div>
+          {planOverspent ? (
+            <>
+              <div className="w-full rounded-full overflow-hidden" style={{ height: 14, background: 'var(--negative)' }} />
+              <p className="text-xs mt-2" style={{ color: 'var(--negative-strong)' }}>
+                Spent {fmt(monthExp)} — {fmt(monthExp - monthInc)} over this month's income.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-full flex rounded-full overflow-hidden" style={{ height: 14, background: 'var(--input-bg)' }}>
+                {planSpentPct > 0 && <div style={{ width: `${planSpentPct}%`, background: 'var(--negative)' }} title={`Spent: ${fmt(monthExp)}`} />}
+                {planBudgetedPct > 0 && <div style={{ width: `${planBudgetedPct}%`, background: 'var(--warning)' }} title={`Budgeted, unspent: ${fmt(remainingBudgeted)}`} />}
+                {planLeftoverPct > 0 && <div style={{ width: `${planLeftoverPct}%`, background: 'var(--positive)' }} title={`Unassigned: ${fmt(planLeftoverAmt)}`} />}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs">
+                <span className="flex items-center gap-1.5 text-muted"><span className="w-2 h-2 rounded-full inline-block" style={{ background: 'var(--negative)' }} /> Spent · {fmt(monthExp)}</span>
+                {remainingBudgeted > 0 && (
+                  <span className="flex items-center gap-1.5 text-muted"><span className="w-2 h-2 rounded-full inline-block" style={{ background: 'var(--warning)' }} /> Budgeted, unspent · {fmt(remainingBudgeted)}</span>
+                )}
+                <span className="flex items-center gap-1.5 text-muted"><span className="w-2 h-2 rounded-full inline-block" style={{ background: 'var(--positive)' }} /> Unassigned · {fmt(planLeftoverAmt)}</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* ── CHARTS ROW ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
