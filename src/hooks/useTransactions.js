@@ -94,6 +94,11 @@ export function TransactionProvider({ userId, children }) {
   const [transactions, setTransactions] = useState([])
   const [accounts,     setAccounts]     = useState([])
   const [loading,      setLoading]      = useState(true)
+  // Surfaced app-wide (see the banner in Layout.jsx) instead of silently
+  // rendering as if the user simply has no data — Supabase's client resolves
+  // successfully even on a backend error (data: null, error: {...}), so
+  // without this check a broken query looked exactly like an empty account.
+  const [error, setError] = useState(null)
   // Accounts + transactions are the shared-scope data that's actually wired up to read
   // household-wide (see src/hooks/useHousehold.js) — householdUserIds falls back to
   // [userId] alone when there's no household, so solo users see identical behavior.
@@ -101,7 +106,7 @@ export function TransactionProvider({ userId, children }) {
 
   const load = useCallback(async () => {
     if (!userId || householdUserIds.length === 0) return
-    const [{ data: txns }, { data: accs }] = await Promise.all([
+    const [txnRes, accRes] = await Promise.all([
       supabase
         .from('account_transactions')
         .select('*, accounts(name, type, institution, card_last4, card_type)')
@@ -113,8 +118,15 @@ export function TransactionProvider({ userId, children }) {
         .in('user_id', householdUserIds)
         .order('created_at', { ascending: false }),
     ])
-    setTransactions(txns || [])
-    setAccounts(accs     || [])
+    const loadError = txnRes.error || accRes.error
+    if (loadError) {
+      console.error('TransactionProvider: failed to load accounts/transactions:', loadError)
+      setError(loadError)
+    } else {
+      setError(null)
+      setTransactions(txnRes.data || [])
+      setAccounts(accRes.data || [])
+    }
     setLoading(false)
   }, [userId, householdUserIds])
 
@@ -144,7 +156,7 @@ export function TransactionProvider({ userId, children }) {
 
   const value = {
     transactions, expenseTxns, incomeTxns,
-    accounts, loading, reload: load,
+    accounts, loading, error, reload: load,
     addTransaction, updateTransaction, deleteTransaction,
   }
 

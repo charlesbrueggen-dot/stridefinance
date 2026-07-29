@@ -3,7 +3,7 @@ import { Outlet, useLocation, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Sparkle, ArrowUpRight, ArrowDownRight, DollarSign,
   Landmark, PieChart, BarChart3, Target, HandCoins, Repeat, Moon, Sun, X,
-  MoreHorizontal, Settings as SettingsIcon,
+  MoreHorizontal, Settings as SettingsIcon, AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../App'
 import { useTransactions } from '../hooks/useTransactions'
@@ -91,6 +91,8 @@ export default function Layout({ dark, setDark }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const { user } = useAuth()
   const location = useLocation()
+  const { error: txnLoadError } = useTransactions()
+  const [bannerDismissed, setBannerDismissed] = useState(false)
 
   // Close the "More" sheet whenever the route changes
   useEffect(() => { setMoreOpen(false) }, [location.pathname])
@@ -263,6 +265,30 @@ export default function Layout({ dark, setDark }) {
       {/* ══════════ PAGE CONTENT ══════════ */}
       <main className="lg:pl-64">
         <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto pb-24 lg:pb-8">
+          {/* Surfaces a failed accounts/transactions load instead of silently showing
+              an empty app — Supabase resolves successfully even on a backend error
+              (data: null, error: {...}), so without this a broken query looked
+              exactly like "all my data is gone". */}
+          {txnLoadError && !bannerDismissed && (
+            <div className="rounded-2xl p-4 mb-4 flex items-center justify-between gap-3 flex-wrap"
+              style={{ background: 'var(--negative-bg)', border: '1px solid var(--negative)' }}>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertTriangle size={18} style={{ color: 'var(--negative)' }} className="flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="font-bold text-sm" style={{ color: 'var(--negative)' }}>Couldn't load your accounts &amp; transactions</p>
+                  <p className="text-xs text-muted">Your data is safe — this is a connection problem. Try refreshing.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button onClick={() => window.location.reload()}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5"
+                  style={{ background: 'var(--negative)', color: '#fff' }}>
+                  <RefreshCw size={12} /> Refresh
+                </button>
+                <button onClick={() => setBannerDismissed(true)} className="text-muted hover:text-primary"><X size={16} /></button>
+              </div>
+            </div>
+          )}
           <div className="page-enter" key={location.pathname}>
             <Outlet context={{ dark, setDark }} />
           </div>

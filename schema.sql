@@ -425,6 +425,56 @@ create policy "Members can create invite codes for their household" on household
 create policy "Members can revoke their household's invite codes" on household_invite_codes for delete
   using (household_id in (select household_id from household_members where user_id = auth.uid()));
 
+-- Fix (migration: fix_household_rls_infinite_recursion, applied 2026-07-28):
+-- The "Members can view their household roster" policy above self-references
+-- household_members from within its own USING clause. Postgres has to re-evaluate
+-- that same RLS-protected table to check the policy, which re-triggers the policy,
+-- forever — "infinite recursion detected in policy for relation household_members"
+-- (42P17). This wasn't just a household_members problem: every other shared-scope
+-- table's policy also subqueries household_members to find peer user_ids, so the
+-- recursion took down accounts, account_transactions, income, expenses, goals, and
+-- budgets too (surfaced in production as three simultaneous HTTP 500s from
+-- PostgREST, which looked exactly like "my data disappeared" client-side even
+-- though every row was intact).
+--
+-- Fixed by moving the self-referencing lookups into SECURITY DEFINER functions.
+-- A SECURITY DEFINER function runs with the privileges of the function owner, not
+-- the calling role, so its internal query against household_members bypasses RLS
+-- entirely instead of re-entering it — breaking the recursion. All affected
+-- policies below were redefined to call these functions instead of inlining the
+-- subquery.
+create or replace function my_household_id()
+returns uuid language sql security definer stable set search_path = public as $$
+  select household_id from household_members where user_id = auth.uid() limit 1;
+$$;
+grant execute on function my_household_id() to authenticated;
+
+create or replace function my_household_user_ids()
+returns setof uuid language sql security definer stable set search_path = public as $$
+  select hm2.user_id from household_members hm1
+  join household_members hm2 on hm2.household_id = hm1.household_id
+  where hm1.user_id = auth.uid();
+$$;
+grant execute on function my_household_user_ids() to authenticated;
+
+drop policy if exists "Members can view their household roster" on household_members;
+create policy "Members can view their household roster" on household_members for select
+  using (household_id = my_household_id());
+
+drop policy if exists "Members can view their household" on households;
+create policy "Members can view their household" on households for select
+  using (id = my_household_id());
+
+drop policy if exists "Members can view their household's invite codes" on household_invite_codes;
+create policy "Members can view their household's invite codes" on household_invite_codes for select
+  using (household_id = my_household_id());
+drop policy if exists "Members can create invite codes for their household" on household_invite_codes;
+create policy "Members can create invite codes for their household" on household_invite_codes for insert
+  with check (household_id = my_household_id());
+drop policy if exists "Members can revoke their household's invite codes" on household_invite_codes;
+create policy "Members can revoke their household's invite codes" on household_invite_codes for delete
+  using (household_id = my_household_id());
+
 -- Atomically validates + redeems an invite code, adding the calling user to that household.
 create or replace function redeem_household_invite(p_code text)
 returns uuid
@@ -462,61 +512,25 @@ grant execute on function redeem_household_invite(text) to authenticated;
 -- data/plaid_transaction_id attribution).
 drop policy if exists "Users can manage own income" on income;
 create policy "Users can manage own or household income" on income for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  );
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()));
 
 drop policy if exists "Users can manage own expenses" on expenses;
 create policy "Users can manage own or household expenses" on expenses for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  );
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()));
 
 drop policy if exists "Users can manage own goals" on goals;
 create policy "Users can manage own or household goals" on goals for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  );
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()));
 
 drop policy if exists "Users can manage own accounts" on accounts;
 create policy "Users can manage own or household accounts" on accounts for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  );
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()));
 
 drop policy if exists "Users manage own transactions" on account_transactions;
 create policy "Users manage own or household transactions" on account_transactions for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  )
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()))
   with check (auth.uid() = user_id);
 
 drop policy if exists "Users manage own budgets" on budgets;
 create policy "Users manage own or household budgets" on budgets for all
-  using (
-    auth.uid() = user_id or user_id in (
-      select hm2.user_id from household_members hm1
-      join household_members hm2 on hm2.household_id = hm1.household_id
-      where hm1.user_id = auth.uid()
-    )
-  );
+  using (auth.uid() = user_id or user_id in (select my_household_user_ids()));
