@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import {
   Shield, Plane, Car, Home, GraduationCap, PiggyBank, TrendingUp, Target,
-  Trash2, Clock, DollarSign, X, Wallet,
+  Trash2, Clock, DollarSign, X, Wallet, LineChart as LineChartIcon,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../App'
 import { fmtCurrency as fmt } from '../lib/format'
 import Budgets from './Budgets'
 import { PageHeader, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
+import GoalProjection from '../components/GoalProjection'
 
 const CATEGORIES = ['Emergency Fund', 'Vacation', 'Car', 'Home', 'Education', 'Retirement', 'Investment', 'Other']
 const PRIORITIES = ['low', 'medium', 'high']
@@ -32,6 +33,7 @@ export default function Goals() {
   const [showModal, setShowModal] = useState(false)
   const [showProgress, setShowProgress] = useState(null)
   const [progressAmt, setProgressAmt] = useState('')
+  const [projectOpen, setProjectOpen] = useState(null)
   const [form, setForm] = useState({ title: '', target_amount: '', target_date: '', category: 'Other', priority: 'medium' })
   const [saving, setSaving] = useState(false)
 
@@ -163,10 +165,17 @@ export default function Goals() {
                     <button onClick={() => { setShowProgress(null); setProgressAmt('') }} className="btn-secondary px-3 text-sm"><X size={16} /></button>
                   </div>
                 ) : (
-                  <button onClick={() => setShowProgress(goal.id)} className="w-full py-2.5 rounded-xl border text-sm font-semibold text-primary flex items-center justify-center gap-2 transition-colors" style={{ borderColor: 'var(--card-border)', background: 'var(--input-bg)' }}>
-                    <DollarSign size={16} /> Add Progress
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => setShowProgress(goal.id)} className="py-2.5 rounded-xl border text-sm font-semibold text-primary flex items-center justify-center gap-2 transition-colors" style={{ borderColor: 'var(--card-border)', background: 'var(--input-bg)' }}>
+                      <DollarSign size={16} /> Add Progress
+                    </button>
+                    <button onClick={() => setProjectOpen(projectOpen === goal.id ? null : goal.id)} className="py-2.5 rounded-xl border text-sm font-semibold text-primary flex items-center justify-center gap-2 transition-colors" style={{ borderColor: 'var(--card-border)', background: projectOpen === goal.id ? 'var(--positive-bg)' : 'var(--input-bg)', color: projectOpen === goal.id ? 'var(--positive)' : undefined }}>
+                      <LineChartIcon size={16} /> Project
+                    </button>
+                  </div>
                 )}
+
+                {projectOpen === goal.id && <GoalProjection goal={goal} />}
               </div>
             )
           })}

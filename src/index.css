@@ -246,6 +246,14 @@ select.input-field option {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Themed range sliders (goal projection, etc.) — accent-color themes the
+   native thumb/track instantly without hand-rolling cross-browser styles. */
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--positive);
+  cursor: pointer;
+}
+
 .label {
   display: block;
   font-size: 12px;
