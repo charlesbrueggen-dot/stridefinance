@@ -5,8 +5,9 @@
 // provider — so we deep-link to their account page and let the user
 // confirm once they've finished it there.
 import { useState, useEffect, useMemo } from 'react'
-import { Repeat, ArrowUp, ArrowUpRight, X } from 'lucide-react'
+import { Repeat, ArrowUp, ArrowUpRight, X, CalendarDays } from 'lucide-react'
 import { useAuth } from '../App'
+import { supabase } from '../lib/supabase'
 import { useTransactions } from '../hooks/useTransactions'
 import {
   useSubscriptions, detectRecurring, monthlyEquivalent, daysUntil,
@@ -14,9 +15,10 @@ import {
 } from '../hooks/useSubscriptions'
 import { fmtCurrency as fmt } from '../lib/format'
 import ProGate from '../components/ProGate'
-import { PageHeader, EmptyState, PageSkeleton } from '../components/ui'
+import { PageHeader, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
 import MerchantLogo from '../components/MerchantLogo'
+import BillCalendar from '../components/BillCalendar'
 
 function RenewalBadge({ date }) {
   const d = daysUntil(date)
@@ -55,6 +57,25 @@ export default function Subscriptions() {
   const [editingSub, setEditingSub] = useState(null)
   const [form, setForm] = useState(blankForm())
   const [saving, setSaving] = useState(false)
+  const [tab, setTab] = useState('subs') // 'subs' | 'calendar'
+
+  // Recurring expenses/income for the Calendar tab — Subscriptions otherwise only
+  // touches account_transactions + tracked_subscriptions, so these are fetched
+  // separately (same tables Income.jsx/Expenses.jsx already read from).
+  const [recurringExpenses, setRecurringExpenses] = useState([])
+  const [recurringIncome, setRecurringIncome] = useState([])
+  useEffect(() => {
+    if (!user?.id) return
+    const load = async () => {
+      const [{ data: exp }, { data: inc }] = await Promise.all([
+        supabase.from('expenses').select('description, amount, next_due').eq('user_id', user.id).eq('recurring', true),
+        supabase.from('income').select('source, amount, next_date').eq('user_id', user.id).neq('frequency', 'one-time'),
+      ])
+      setRecurringExpenses((exp || []).filter(e => e.next_due))
+      setRecurringIncome((inc || []).filter(i => i.next_date))
+    }
+    load()
+  }, [user?.id])
 
   const allDetected      = useMemo(() => detectRecurring(transactions), [transactions])
   const trackedKeys      = useMemo(() => new Set(trackedSubs.map(s => s.merchant_key)), [trackedSubs])
@@ -88,6 +109,12 @@ export default function Subscriptions() {
     const d = daysUntil(s.next_billing_date)
     return d !== null && d <= 7
   })
+
+  const calendarEvents = useMemo(() => [
+    ...activeSubs.filter(s => s.next_billing_date).map(s => ({ date: s.next_billing_date, label: s.name, amount: s.amount, kind: 'subscription' })),
+    ...recurringExpenses.map(e => ({ date: e.next_due, label: e.description, amount: e.amount, kind: 'expense' })),
+    ...recurringIncome.map(i => ({ date: i.next_date, label: i.source, amount: i.amount, kind: 'income' })),
+  ], [activeSubs, recurringExpenses, recurringIncome])
 
   const openAdd  = () => { setEditingSub(null); setForm(blankForm()); setShowForm(true) }
 
@@ -127,9 +154,19 @@ export default function Subscriptions() {
   return (
     <div>
       <PageHeader title="Subscriptions" subtitle="Recurring charges detected from your transactions">
-        <button onClick={openAdd} className="btn-primary text-sm px-4">+ Add</button>
+        {tab === 'subs' && <button onClick={openAdd} className="btn-primary text-sm px-4">+ Add</button>}
       </PageHeader>
 
+      <div className="mb-5">
+        <SegTabs
+          tabs={[{ value: 'subs', label: 'Subscriptions', Icon: Repeat }, { value: 'calendar', label: 'Bill Calendar', Icon: CalendarDays }]}
+          active={tab} onChange={setTab}
+        />
+      </div>
+
+      {tab === 'calendar' && <BillCalendar events={calendarEvents} />}
+
+      {tab === 'subs' && <>
       {activeSubs.length > 0 && (
         <div className="card p-4 mb-5">
           <p className="text-muted text-xs mb-1">Monthly Subscription Cost</p>
@@ -223,6 +260,7 @@ export default function Subscriptions() {
           </EmptyState>
         </div>
       )}
+      </>}
 
       {/* ══════════════════ SUBSCRIPTION DETAIL POPUP ══════════════════ */}
       {detailSub && (
