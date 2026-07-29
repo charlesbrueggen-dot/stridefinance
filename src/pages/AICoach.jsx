@@ -125,6 +125,20 @@ export default function AICoach() {
     setLoading(true)
 
     try {
+      // Prompt caching: the system prompt (this user's financial summary) and the
+      // growing message history are byte-identical on every message within one
+      // sitting, so a cache breakpoint on each lets later turns in the same
+      // conversation read the prefix instead of paying full price again. Note:
+      // Haiku 4.5's minimum cacheable prefix is 4096 tokens — a short session or
+      // modest financial summary won't actually hit the cache (harmless no-op,
+      // not an error), but longer conversations and heavier data do.
+      const outgoingMessages = newMessages.map(m => ({ role: m.role, content: m.content }))
+      const lastMsg = outgoingMessages[outgoingMessages.length - 1]
+      outgoingMessages[outgoingMessages.length - 1] = {
+        ...lastMsg,
+        content: [{ type: 'text', text: lastMsg.content, cache_control: { type: 'ephemeral' } }],
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -132,8 +146,8 @@ export default function AICoach() {
           userId: user.id,
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1024,
-          system: SYSTEM_PROMPT(financialData),
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          system: [{ type: 'text', text: SYSTEM_PROMPT(financialData), cache_control: { type: 'ephemeral' } }],
+          messages: outgoingMessages,
         }),
       })
 

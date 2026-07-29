@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef } from 'react'
 import {
-  Sparkle, Check, Cloud, AlertTriangle, PartyPopper,
+  Sparkle, Check, Cloud, AlertTriangle, PartyPopper, Zap,
 } from 'lucide-react'
 import { authHeader } from '../lib/supabase'
 import { useAuth } from '../App'
 import { useTransactions, autoCategorize } from '../hooks/useTransactions'
+import { useIsPro } from '../hooks/useIsPro'
 import {
   parseSpreadsheetFile, detectColumns, detectDateFormat, normalizeRow,
   validateMapping, buildDedupeKey,
@@ -45,8 +46,10 @@ function classifyForImport(description, kind) {
 export default function Import() {
   const { user } = useAuth()
   const { accounts, reload: reloadTxns } = useTransactions()
+  const { isPro } = useIsPro(user.id)
   const [step, setStep] = useState(0)
   const fileInputRef = useRef(null)
+  const [upgrading, setUpgrading] = useState(false)
 
   // ── File + raw grid ────────────────────────────────────────────────────────
   const [headers, setHeaders] = useState([])
@@ -205,13 +208,33 @@ export default function Import() {
   }
 
   // ── AI categorization for rows the keyword matcher missed ─────────────────
+  // Free users keep the keyword-based classifyForImport() result as-is — the
+  // "normal" categorization every row already gets during preview. AI
+  // categorization (Claude Haiku 4.5, via /api/categorize) is Pro-only: the
+  // backend already enforces this (isUserPro() check, see api/categorize.js),
+  // this just avoids showing free users a button that would 403.
+  //
   // Batches the not-yet-confidently-categorized rows (that will actually be
-  // imported) through /api/categorize (Claude Haiku 4.5) and merges the
-  // results back into parsedRows. Import itself always reads from
-  // row.classified, so this simply improves what gets imported — no change
-  // to the import flow is needed on top of this.
+  // imported) through /api/categorize and merges the results back into
+  // parsedRows. Import itself always reads from row.classified, so this
+  // simply improves what gets imported — no change to the import flow is
+  // needed on top of this.
   const AI_BATCH_SIZE = 50
   const needsAICount = parsedRows.filter(r => !r.classified.autoCategorized && (includeDuplicates || !r.isDuplicate)).length
+
+  const handleUpgrade = async () => {
+    setUpgrading(true)
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+        body: JSON.stringify({ userId: user.id }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else setUpgrading(false)
+    } catch { setUpgrading(false) }
+  }
 
   const handleAICategorize = async () => {
     const targets = parsedRows
@@ -470,13 +493,22 @@ export default function Import() {
             <div className="mb-4 p-3 rounded-xl flex items-center justify-between gap-3 flex-wrap"
               style={{ background: 'var(--info-bg)', border: '1px solid var(--info)' }}>
               <p className="text-xs flex items-center gap-1" style={{ color: 'var(--info)' }}>
-                <Sparkle size={12} /> {needsAICount} transaction{needsAICount === 1 ? '' : 's'} couldn't be auto-categorized confidently.
+                <Sparkle size={12} /> {needsAICount} transaction{needsAICount === 1 ? '' : 's'} couldn't be auto-categorized confidently
+                {isPro ? '.' : ' — they\'ll import as Wants/Other (or Transfer In/Other).'}
               </p>
-              <button type="button" onClick={handleAICategorize} disabled={aiCategorizing}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
-                style={{ background: 'var(--info)', color: '#fff' }}>
-                {aiCategorizing ? 'Categorizing…' : `✨ AI Categorize ${needsAICount}`}
-              </button>
+              {isPro ? (
+                <button type="button" onClick={handleAICategorize} disabled={aiCategorizing}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50"
+                  style={{ background: 'var(--info)', color: '#fff' }}>
+                  {aiCategorizing ? 'Categorizing…' : `✨ AI Categorize ${needsAICount}`}
+                </button>
+              ) : (
+                <button type="button" onClick={handleUpgrade} disabled={upgrading}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0 disabled:opacity-50 inline-flex items-center gap-1"
+                  style={{ background: 'var(--info)', color: '#fff' }}>
+                  <Zap size={11} /> {upgrading ? 'Redirecting…' : 'Upgrade to Pro to AI-categorize'}
+                </button>
+              )}
             </div>
           )}
 
