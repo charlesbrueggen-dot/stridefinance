@@ -14,6 +14,7 @@ import { useTransactions } from '../hooks/useTransactions'
 import { bucketMonthlyTotals, computeSavingsRate } from '../lib/savingsRate'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SectionTitle } from '../components/ui'
 import MerchantLogo from '../components/MerchantLogo'
+import MonthFlipper, { monthKeyNow, monthLabel } from '../components/MonthFlipper'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -48,6 +49,8 @@ export default function Dashboard() {
   const { expenseTxns, incomeTxns } = useTransactions()
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef(null)
+  const [viewMonth, setViewMonth] = useState(monthKeyNow())
+  const isCurrentMonth = viewMonth === monthKeyNow()
 
   // Close the Add menu on any outside click
   useEffect(() => {
@@ -87,9 +90,8 @@ export default function Dashboard() {
 
   const totalIncome   = allIncome.reduce((s, i) => s + parseFloat(i.amount), 0)
   const totalExpenses = allExpenses.reduce((s, e) => s + parseFloat(e.amount), 0)
-  const thisMonth     = new Date().toISOString().slice(0, 7)
-  const monthExp      = allExpenses.filter(e => e.date?.slice(0, 7) === thisMonth).reduce((s, e) => s + parseFloat(e.amount), 0)
-  const monthInc      = allIncome.filter(i => i.date?.slice(0, 7) === thisMonth).reduce((s, i) => s + parseFloat(i.amount), 0)
+  const monthExp      = allExpenses.filter(e => e.date?.slice(0, 7) === viewMonth).reduce((s, e) => s + parseFloat(e.amount), 0)
+  const monthInc      = allIncome.filter(i => i.date?.slice(0, 7) === viewMonth).reduce((s, i) => s + parseFloat(i.amount), 0)
   const monthNet      = monthInc - monthExp
 
   // Trailing-6-month average savings rate — the same shared calculation Analytics uses by
@@ -180,13 +182,19 @@ export default function Dashboard() {
         </div>
       </Link>
 
-      {/* ── THIS MONTH AT A GLANCE ── */}
+      {/* ── MONTH AT A GLANCE ── */}
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-xs font-extrabold text-muted uppercase tracking-widest">
+          {isCurrentMonth ? 'This month' : monthLabel(viewMonth)} at a glance
+        </p>
+        <MonthFlipper value={viewMonth} onChange={setViewMonth} />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <StatCard label="Income this month" value={fmt(monthInc)} Icon={ArrowUpRight}
+        <StatCard label={isCurrentMonth ? 'Income this month' : 'Income'} value={fmt(monthInc)} Icon={ArrowUpRight}
           sub={`${fmt(totalIncome)} all time`} onClick={() => navigate('/income')} />
-        <StatCard label="Spent this month" value={fmt(monthExp)} Icon={ArrowDownRight}
+        <StatCard label={isCurrentMonth ? 'Spent this month' : 'Spent'} value={fmt(monthExp)} Icon={ArrowDownRight}
           sub={`${fmt(totalExpenses)} all time`} onClick={() => navigate('/expenses')} />
-        <StatCard label="Net this month" value={`${monthNet >= 0 ? '+' : '−'}${fmt(Math.abs(monthNet))}`} Icon={Wallet}
+        <StatCard label={isCurrentMonth ? 'Net this month' : 'Net'} value={`${monthNet >= 0 ? '+' : '−'}${fmt(Math.abs(monthNet))}`} Icon={Wallet}
           valueStyle={monthNet < 0 ? { color: 'var(--negative-strong)' } : undefined}
           sub={monthNet >= 0 ? 'Cash positive' : 'Spending exceeds income'} />
         <StatCard label="Savings rate" value={`${savingsPct}%`} Icon={PiggyBank}

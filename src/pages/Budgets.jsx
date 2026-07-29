@@ -8,6 +8,7 @@ import { useAuth } from '../App'
 import { useTransactions } from '../hooks/useTransactions'
 import { fmtCurrency as fmt } from '../lib/format'
 import { EmptyState, PageSkeleton } from '../components/ui'
+import MonthFlipper, { monthKeyNow, monthLabel } from '../components/MonthFlipper'
 
 const CATEGORIES    = ['Needs', 'Wants', 'Savings']
 const SUBCATEGORIES = {
@@ -15,8 +16,6 @@ const SUBCATEGORIES = {
   Wants:   ['Dining', 'Entertainment', 'Shopping', 'Travel', 'Subscriptions', 'Other'],
   Savings: ['Emergency Fund', 'Retirement', 'Investment', 'Vacation', 'Other'],
 }
-
-const thisMonthKey = () => new Date().toISOString().slice(0, 7)
 
 const blankForm = () => ({ category: 'Needs', subcategory: SUBCATEGORIES.Needs[0], monthly_limit: '' })
 
@@ -32,6 +31,8 @@ export default function Budgets() {
   const [form, setForm]                     = useState(blankForm())
   const [saving, setSaving]                 = useState(false)
   const [saveError, setSaveError]           = useState('')
+  const [viewMonth, setViewMonth]           = useState(monthKeyNow())
+  const isCurrentMonth = viewMonth === monthKeyNow()
 
   const load = async () => {
     const [{ data: exp }, { data: bud }] = await Promise.all([
@@ -50,17 +51,16 @@ export default function Budgets() {
     ...expenseTxns.map(t => ({ amount: t.amount, category: t.category || 'Wants', subcategory: t.subcategory || 'Other', date: t.date })),
   ], [legacyExpenses, expenseTxns])
 
-  // This calendar month's spend, bucketed by category+subcategory.
+  // Selected calendar month's spend, bucketed by category+subcategory.
   const spentMap = useMemo(() => {
-    const monthKey = thisMonthKey()
     const map = {}
     allExpenses.forEach(e => {
-      if (!e.date || e.date.slice(0, 7) !== monthKey) return
+      if (!e.date || e.date.slice(0, 7) !== viewMonth) return
       const key = `${e.category}|${e.subcategory || 'Other'}`
       map[key] = (map[key] || 0) + Number(e.amount)
     })
     return map
-  }, [allExpenses])
+  }, [allExpenses, viewMonth])
 
   const rows = budgets.map(b => {
     const spent = spentMap[`${b.category}|${b.subcategory}`] || 0
@@ -126,7 +126,10 @@ export default function Budgets() {
 
   return (
     <div>
-      <button onClick={openAdd} className="btn-primary mb-6"><Plus size={16} /> Add Budget</button>
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <button onClick={openAdd} className="btn-primary"><Plus size={16} /> Add Budget</button>
+        <MonthFlipper value={viewMonth} onChange={setViewMonth} />
+      </div>
 
       {budgets.length > 0 && (
         <div className="card p-6 mb-6 flex items-center gap-5">
@@ -134,7 +137,7 @@ export default function Budgets() {
             <Wallet size={24} />
           </div>
           <div>
-            <p className="text-muted text-sm mb-1">Left to Spend This Month</p>
+            <p className="text-muted text-sm mb-1">Left to Spend {isCurrentMonth ? 'This Month' : `in ${monthLabel(viewMonth)}`}</p>
             <p className="text-4xl font-black tnum" style={{ color: totalLeft >= 0 ? 'var(--text-primary)' : 'var(--negative-strong)' }}>{fmt(totalLeft)}</p>
             <p className="text-muted text-sm mt-1">{fmt(totalSpent)} spent of {fmt(totalLimit)} budgeted</p>
           </div>
@@ -169,7 +172,7 @@ export default function Budgets() {
               <div className="progress-bar mb-1">
                 <div className="progress-fill" style={{ width: `${Math.min(100, r.pct)}%`, background: r.over ? 'var(--negative)' : 'var(--accent)' }}></div>
               </div>
-              <p className="text-xs text-muted">{fmt(r.spent)} of {fmt(r.monthly_limit)} spent this month</p>
+              <p className="text-xs text-muted">{fmt(r.spent)} of {fmt(r.monthly_limit)} spent {isCurrentMonth ? 'this month' : `in ${monthLabel(viewMonth)}`}</p>
             </div>
           ))}
         </div>
