@@ -72,6 +72,11 @@ export default function App() {
     if (dark) document.documentElement.classList.add('dark')
     else document.documentElement.classList.remove('dark')
     localStorage.setItem('stride-dark', dark)
+    // iOS paints the home-screen app's status bar (clock/wifi/battery row) from
+    // this meta tag, so it has to flip with the in-app toggle or it stays the
+    // light-mode blue even when the rest of the app has gone dark.
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', dark ? '#000000' : '#185894')
   }, [dark])
 
   useEffect(() => {
