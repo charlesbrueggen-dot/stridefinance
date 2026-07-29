@@ -44,7 +44,32 @@ const CATEGORY_RULES = [
   { pattern: /venmo|paypal|zelle|cash.?app.*\+/i,             kind: 'income',  source: 'Transfer In' },
 ]
 
-export function autoCategorize(description = '', merchant = '') {
+// Checks the user's own custom rules (see useTransactionRules.js) before falling back to the
+// built-in keyword rules below. Highest `priority` wins; first match on a tie.
+export function applyUserRules(rules, description = '', merchant = '') {
+  if (!rules || rules.length === 0) return null
+  const sorted = [...rules].sort((a, b) => (b.priority || 0) - (a.priority || 0))
+  for (const rule of sorted) {
+    const haystack = (rule.match_field === 'merchant' ? merchant : description || '').toLowerCase()
+    if (haystack && haystack.includes(rule.match_value.toLowerCase())) {
+      return {
+        kind: rule.set_kind || 'expense',
+        category: rule.set_category || null,
+        subcategory: rule.set_subcategory || null,
+        source: null,
+        label: rule.set_label || null,
+        auto: true,
+        fromRule: true,
+      }
+    }
+  }
+  return null
+}
+
+export function autoCategorize(description = '', merchant = '', userRules = []) {
+  const userMatch = applyUserRules(userRules, description, merchant)
+  if (userMatch) return userMatch
+
   const text = `${description} ${merchant}`.trim()
   for (const rule of CATEGORY_RULES) {
     if (rule.pattern.test(text)) {

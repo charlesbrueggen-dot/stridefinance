@@ -335,3 +335,24 @@ create policy "Users manage own budgets" on budgets for all
 -- When true, Budgets.jsx carries a category's unspent (or overspent) amount into the next
 -- month's effective limit, computed on the fly from spend history — no separate ledger table.
 alter table budgets add column if not exists rollover boolean not null default false;
+
+-- =============================================
+-- TRANSACTION_RULES (migration: create_transaction_rules_table, applied 2026-07-28)
+-- User-defined auto-categorization rules, checked before the built-in keyword rules in
+-- useTransactions.js's autoCategorize(). Managed from the "Rules" tab on Accounts.jsx.
+-- =============================================
+create table if not exists transaction_rules (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  match_field text not null default 'description' check (match_field in ('description', 'merchant')),
+  match_value text not null,
+  set_kind text check (set_kind in ('expense', 'income', 'transfer')),
+  set_category text,
+  set_subcategory text,
+  set_label text,
+  priority int not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table transaction_rules enable row level security;
+create policy "Users manage own transaction rules" on transaction_rules for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);

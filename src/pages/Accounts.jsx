@@ -6,12 +6,13 @@ import {
   Landmark, PiggyBank, CreditCard, TrendingUp, Banknote,
   ArrowUpRight, ArrowDownRight, ArrowLeftRight, Sparkle, Zap, Link2,
   FlaskConical, AlertTriangle, RefreshCw, Check, Pencil, Trash2, X,
-  ClipboardList, Hourglass, Download,
+  ClipboardList, Hourglass, Download, ListFilter,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../App'
 import { useTransactions, autoCategorize } from '../hooks/useTransactions'
 import { usePlaid } from '../hooks/usePlaid'
+import { useTransactionRules, MATCH_FIELDS } from '../hooks/useTransactionRules'
 import { fmtCurrency as fmt } from '../lib/format'
 import Import from './Import'
 import ProGate from '../components/ProGate'
@@ -90,6 +91,11 @@ const blankTxn = () => ({
   merchant: '', card_last4: '', account_id: '',
 })
 
+const blankRule = () => ({
+  match_field: 'description', match_value: '',
+  set_kind: 'expense', set_category: 'Wants', set_subcategory: 'Other', set_label: '',
+})
+
 
 function CardVisual({ account }) {
   const isCard = account.type === 'Credit Card'
@@ -133,6 +139,13 @@ export default function Accounts() {
     connectedItems, syncing, connecting, syncResult, error: plaidError,
     mockMode, canSync, cooldownSecondsLeft, connectBank, syncTransactions, disconnectBank,
   } = usePlaid(user?.id)
+  const { rules, addRule, deleteRule } = useTransactionRules(user?.id)
+
+  const [showRuleForm, setShowRuleForm] = useState(false)
+  const [ruleForm, setRuleForm] = useState(blankRule())
+  const [savingRule, setSavingRule] = useState(false)
+  const [applyingRules, setApplyingRules] = useState(false)
+  const [applyResult, setApplyResult] = useState(null)
 
   const [showAccModal, setShowAccModal] = useState(false)
   const [editAcc,      setEditAcc]      = useState(null)
@@ -211,7 +224,7 @@ export default function Accounts() {
 
   const handleDescChange = val => {
     setTxnForm(f => ({ ...f, description: val }))
-    if (val.length >= 3) setAutoSuggest(autoCategorize(val, txnForm.merchant))
+    if (val.length >= 3) setAutoSuggest(autoCategorize(val, txnForm.merchant, rules))
     else setAutoSuggest(null)
   }
 
@@ -223,6 +236,7 @@ export default function Accounts() {
       category:    autoSuggest.category    || f.category,
       subcategory: autoSuggest.subcategory || f.subcategory,
       source:      autoSuggest.source      || f.source,
+      label:       autoSuggest.label       || f.label,
     }))
     setAutoSuggest(null)
   }
@@ -286,6 +300,53 @@ export default function Accounts() {
     reload()
   }
 
+  // ── Rules CRUD ─────────────────────────────────────────────────────────────
+  const openAddRule = () => { setRuleForm(blankRule()); setShowRuleForm(true) }
+
+  const handleSaveRule = async e => {
+    e.preventDefault(); setSavingRule(true)
+    await addRule({
+      match_field: ruleForm.match_field,
+      match_value: ruleForm.match_value.trim(),
+      set_kind: ruleForm.set_kind,
+      set_category: ruleForm.set_kind === 'expense' ? ruleForm.set_category : null,
+      set_subcategory: ruleForm.set_kind === 'expense' ? ruleForm.set_subcategory : null,
+      set_label: ruleForm.set_label.trim() || null,
+    })
+    setSavingRule(false); setShowRuleForm(false)
+  }
+
+  // Re-applies every rule to existing transactions — only the ones a rule actually matches,
+  // in small concurrent batches so a large transaction history doesn't fire thousands of
+  // requests at once.
+  const handleApplyRules = async () => {
+    if (rules.length === 0) return
+    setApplyingRules(true); setApplyResult(null)
+    const toUpdate = transactions
+      .map(t => ({ t, match: autoCategorize(t.description, t.merchant, rules) }))
+      .filter(({ match }) => match.fromRule)
+      .filter(({ t, match }) =>
+        t.kind !== match.kind || t.category !== match.category ||
+        t.subcategory !== match.subcategory || (match.label && t.label !== match.label)
+      )
+
+    const BATCH = 15
+    let applied = 0
+    for (let i = 0; i < toUpdate.length; i += BATCH) {
+      const batch = toUpdate.slice(i, i + BATCH)
+      await Promise.all(batch.map(({ t, match }) =>
+        supabase.from('account_transactions').update({
+          kind: match.kind, category: match.category, subcategory: match.subcategory,
+          label: match.label || t.label, auto_categorized: true,
+        }).eq('id', t.id).eq('user_id', user.id)
+      ))
+      applied += batch.length
+    }
+    setApplyResult(applied)
+    setApplyingRules(false)
+    reload()
+  }
+
   // ── Derived data ──────────────────────────────────────────────────────────
   const totalAssets = accounts.filter(a => a.type !== 'Credit Card').reduce((s, a) => s + a.balance, 0)
   const totalDebt   = accounts.filter(a => a.type === 'Credit Card').reduce((s, a) => s + a.balance, 0)
@@ -321,7 +382,7 @@ export default function Accounts() {
 
       {/* Tabs — sized to always fit on one line, even on small phones */}
       <div className="flex flex-wrap gap-1 mb-5">
-        {[['accounts', Landmark, 'Accounts'], ['connect', Link2, 'Connect Bank'], ['import', Download, 'Import']].map(([t, Icon, label]) => (
+        {[['accounts', Landmark, 'Accounts'], ['connect', Link2, 'Connect Bank'], ['import', Download, 'Import'], ['rules', ListFilter, 'Rules']].map(([t, Icon, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className={`seg-tab ${tab === t ? 'seg-tab-active' : ''}`}
             style={{ padding: '6px 9px', fontSize: 12, gap: 4 }}>
@@ -712,6 +773,50 @@ export default function Accounts() {
       {/* ══════════════════ IMPORT TAB ══════════════════ */}
       {tab === 'import' && <Import />}
 
+      {/* ══════════════════ RULES TAB ══════════════════ */}
+      {tab === 'rules' && (
+        <div>
+          <div className="flex items-center gap-3 mb-5 flex-wrap">
+            <button onClick={openAddRule} className="btn-primary flex-1 justify-center">+ New Rule</button>
+            <button onClick={handleApplyRules} disabled={applyingRules || rules.length === 0} className="btn-secondary flex-1 justify-center">
+              {applyingRules ? <><RefreshCw size={15} className="animate-spin" /> Applying…</> : 'Re-run rules on existing transactions'}
+            </button>
+          </div>
+
+          {applyResult !== null && (
+            <div className="mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-1.5"
+              style={{ background: 'var(--positive-bg)', border: '1px solid var(--positive)', color: 'var(--positive)' }}>
+              <Check size={14} /> Updated {applyResult} transaction{applyResult !== 1 ? 's' : ''} to match your rules.
+            </div>
+          )}
+
+          {rules.length === 0 ? (
+            <div className="card" style={{ border: '2px dashed var(--card-border)' }}>
+              <EmptyState Icon={ListFilter} title="No rules yet"
+                sub="Create a rule to auto-categorize transactions whose description or merchant matches text you choose — e.g. always file 'Acme Corp' as a Utilities expense.">
+                <button onClick={openAddRule} className="btn-primary">+ New Rule</button>
+              </EmptyState>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {rules.map(r => (
+                <div key={r.id} className="card p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-primary text-sm truncate">
+                      {MATCH_FIELDS.find(f => f.value === r.match_field)?.label || r.match_field} "{r.match_value}"
+                    </p>
+                    <p className="text-xs text-muted truncate">
+                      → {r.set_kind}{r.set_category ? ` · ${r.set_category} › ${r.set_subcategory}` : ''}{r.set_label ? ` · label: ${r.set_label}` : ''}
+                    </p>
+                  </div>
+                  <button onClick={() => deleteRule(r.id)} className="text-muted hover:text-red-500 flex-shrink-0"><Trash2 size={15} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ══════════════════ ACCOUNT MODAL ══════════════════ */}
       {showAccModal && (
         <div className="modal-overlay" onClick={() => setShowAccModal(false)}>
@@ -881,6 +986,80 @@ export default function Accounts() {
               <div className="grid grid-cols-2 gap-3">
                 <button type="button" onClick={() => setShowTxnModal(false)} className="btn-secondary justify-center">Cancel</button>
                 <button type="submit" disabled={savingTxn} className="btn-primary justify-center">{savingTxn ? 'Saving…' : editTxn ? 'Save Changes' : 'Log Transaction'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════ NEW RULE MODAL ══════════════════ */}
+      {showRuleForm && (
+        <div className="modal-overlay" onClick={() => setShowRuleForm(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <p className="accent-text font-black text-lg">New Rule</p>
+              <button onClick={() => setShowRuleForm(false)} className="text-muted hover:text-primary"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleSaveRule}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="label">Match field</label>
+                  <select className="input-field" value={ruleForm.match_field} onChange={e => setRuleForm(f => ({ ...f, match_field: e.target.value }))}>
+                    {MATCH_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Text to match</label>
+                  <input className="input-field" placeholder="e.g., acme corp" value={ruleForm.match_value}
+                    onChange={e => setRuleForm(f => ({ ...f, match_value: e.target.value }))} required />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="label">Set type</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {TXN_KINDS.map(k => (
+                    <button key={k} type="button" onClick={() => setRuleForm(f => ({ ...f, set_kind: k }))}
+                      className="py-2 rounded-xl text-sm font-bold capitalize transition-all"
+                      style={{
+                        background: ruleForm.set_kind === k ? KIND_COLOR[k] : 'var(--input-bg)',
+                        color:      ruleForm.set_kind === k ? '#fff' : 'var(--text-muted)',
+                        border:     '1px solid var(--card-border)',
+                      }}>
+                      {k}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {ruleForm.set_kind === 'expense' && (
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <label className="label">Category</label>
+                    <select className="input-field" value={ruleForm.set_category}
+                      onChange={e => setRuleForm(f => ({ ...f, set_category: e.target.value, set_subcategory: CATEGORIES.expense[e.target.value]?.[0] || 'Other' }))}>
+                      {Object.keys(CATEGORIES.expense).map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Subcategory</label>
+                    <select className="input-field" value={ruleForm.set_subcategory}
+                      onChange={e => setRuleForm(f => ({ ...f, set_subcategory: e.target.value }))}>
+                      {(CATEGORIES.expense[ruleForm.set_category] || ['Other']).map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <label className="label">Label (optional)</label>
+                <input className="input-field" placeholder="e.g., work trip" value={ruleForm.set_label}
+                  onChange={e => setRuleForm(f => ({ ...f, set_label: e.target.value }))} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setShowRuleForm(false)} className="btn-secondary justify-center">Cancel</button>
+                <button type="submit" disabled={savingRule} className="btn-primary justify-center">{savingRule ? 'Saving…' : 'Create Rule'}</button>
               </div>
             </form>
           </div>
