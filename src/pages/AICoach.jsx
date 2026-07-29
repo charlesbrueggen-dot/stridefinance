@@ -59,6 +59,15 @@ export default function AICoach() {
   const inputRef = useRef(null)
   const { expenseTxns, incomeTxns } = useTransactions()
 
+  // Deep link from Dashboard insight cards: /coach?ask=<encoded prompt> prefills
+  // the input (doesn't auto-send — same "opens ready to review" pattern the
+  // ?add=1 deep links use elsewhere in the app).
+  useEffect(() => {
+    const ask = new URLSearchParams(window.location.search).get('ask')
+    if (ask) { setInput(ask); setTimeout(() => inputRef.current?.focus(), 100) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])

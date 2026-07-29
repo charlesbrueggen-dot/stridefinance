@@ -16,6 +16,9 @@ import { PageHeader, StatCard, EmptyState, PageSkeleton, SectionTitle } from '..
 import MerchantLogo from '../components/MerchantLogo'
 import MonthFlipper, { monthKeyNow, monthLabel } from '../components/MonthFlipper'
 import SetupChecklist from '../components/SetupChecklist'
+import InsightsCard from '../components/InsightsCard'
+import { buildInsights } from '../lib/insights'
+import { useSubscriptions } from '../hooks/useSubscriptions'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -49,6 +52,7 @@ export default function Dashboard() {
   const [pieActiveIndex, setPieActiveIndex] = useState(null)
   const [spendActiveIndex, setSpendActiveIndex] = useState(null)
   const { expenseTxns, incomeTxns, accounts } = useTransactions()
+  const { tracked: trackedSubs } = useSubscriptions(user?.id)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef(null)
   const [viewMonth, setViewMonth] = useState(monthKeyNow())
@@ -119,6 +123,12 @@ export default function Dashboard() {
     [allIncome, allExpenses]
   )
   const { rate: savingsPct } = computeSavingsRate(monthlyTotals)
+
+  const activeSubs = useMemo(() => trackedSubs.filter(s => s.status === 'active'), [trackedSubs])
+  const insights = useMemo(
+    () => buildInsights({ allExpenses, viewMonth, goals, activeSubs, savingsPct }),
+    [allExpenses, viewMonth, goals, activeSubs, savingsPct]
+  )
 
   const srcMap = {}
   allIncome.forEach(i => { srcMap[i.source] = (srcMap[i.source] || 0) + parseFloat(i.amount) })
@@ -260,6 +270,8 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      <InsightsCard insights={insights} />
 
       {/* ── CHARTS ROW ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
