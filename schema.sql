@@ -181,6 +181,15 @@ alter table plaid_items enable row level security;
 create policy "Users can view own plaid items"
   on plaid_items for select using (auth.uid() = user_id);
 
+-- Hardening (migration: restrict_plaid_access_token_column, applied 2026-07-28):
+-- RLS above is row-level only, so a user could otherwise SELECT their own
+-- access_token directly (bank API credential) via a raw query, even though the
+-- app itself never requests that column (see src/hooks/usePlaid.js's explicit
+-- column list). Column-level REVOKE blocks it regardless of RLS, for both the
+-- anon and authenticated roles; the service role used by api/plaid/*.js is
+-- unaffected.
+revoke select (access_token) on table plaid_items from authenticated, anon;
+
 -- Plaid link columns on accounts
 alter table accounts add column if not exists plaid_account_id text;
 alter table accounts add column if not exists plaid_item_id uuid references plaid_items(id) on delete set null;
