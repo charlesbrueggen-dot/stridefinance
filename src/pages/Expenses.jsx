@@ -17,6 +17,7 @@ import { useTransactions } from '../hooks/useTransactions'
 import { fmtCurrency as fmt } from '../lib/format'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import MerchantLogo from '../components/MerchantLogo'
+import { DATE_RANGE_OPTIONS, inDateRange } from '../lib/dateRange'
 
 const today = () => new Date().toISOString().split('T')[0]
 const QUICK_AMOUNTS = [1, 5, 10, 50, 100, 500]
@@ -66,6 +67,7 @@ export default function Expenses() {
 
   const [search,   setSearch]   = useState('')
   const [tab,      setTab]      = useState('All')
+  const [dateRange, setDateRange] = useState('all')
   const [step,     setStep]     = useState(null)
   const [editItem, setEditItem] = useState(null)
   const [form,     setForm]     = useState({
@@ -192,7 +194,8 @@ export default function Expenses() {
   const filtered = allExpenses.filter(e => {
     const matchTab    = tab === 'All' || e.category === tab
     const matchSearch = !search || e.description.toLowerCase().includes(search.toLowerCase())
-    return matchTab && matchSearch
+    const matchDate   = inDateRange(e.date, dateRange)
+    return matchTab && matchSearch && matchDate
   })
 
   const upcoming = legacyExpenses
@@ -247,10 +250,13 @@ export default function Expenses() {
       )}
 
       {/* Filter tabs + search */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <SegTabs tabs={FILTER_TABS} active={tab} onChange={setTab} />
         <input className="input-field flex-1 text-sm min-w-32" style={{ maxWidth: 280 }} placeholder="Search…"
           value={search} onChange={e => setSearch(e.target.value)} />
+      </div>
+      <div className="mb-4">
+        <SegTabs small tabs={DATE_RANGE_OPTIONS} active={dateRange} onChange={setDateRange} />
       </div>
 
       {/* Expense list */}

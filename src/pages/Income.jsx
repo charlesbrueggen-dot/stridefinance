@@ -34,6 +34,7 @@ export default function Income() {
   const [error, setError]     = useState('')
   const dark = useDarkMode()
   const [pieActiveIndex, setPieActiveIndex] = useState(null)
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     const [{ data: manualData }, { data: bankData }] = await Promise.all([
@@ -101,6 +102,15 @@ export default function Income() {
 
   const recurring = income.filter(i => i.frequency && i.frequency !== 'one-time')
   const oneTime   = income.filter(i => !i.frequency || i.frequency === 'one-time')
+
+  // Search only narrows which rows are *shown* — totals/pie chart above stay
+  // computed from the full data, same as the Accounts/Expenses search boxes.
+  const matchesSearch = s => !search || (s || '').toLowerCase().includes(search.toLowerCase())
+  const shownBankIncome = bankIncome.filter(i => matchesSearch(i.source || i.description))
+  const shownRecurring  = recurring.filter(i => matchesSearch(i.source))
+  const shownOneTime    = oneTime.filter(i => matchesSearch(i.source))
+  const noSearchResults = search && shownBankIncome.length === 0 && shownRecurring.length === 0 && shownOneTime.length === 0
+    && (bankIncome.length > 0 || income.length > 0)
 
   // Bank-synced transactions have no declared frequency (they're individual deposits, not
   // recurring definitions like manual entries), so a repeating paycheck has to be inferred from
@@ -178,12 +188,24 @@ export default function Income() {
         )}
       </div>
 
+      {/* Search — narrows the lists below without touching totals/pie above */}
+      {(income.length > 0 || bankIncome.length > 0) && (
+        <input className="input-field text-sm mb-4" placeholder="Search income…"
+          value={search} onChange={e => setSearch(e.target.value)} />
+      )}
+
+      {noSearchResults && (
+        <div className="card mb-4">
+          <EmptyState Icon={Banknote} title="No matches" sub={`Nothing matches "${search}".`} />
+        </div>
+      )}
+
       {/* Bank-synced income */}
-      {bankIncome.length > 0 && (
+      {shownBankIncome.length > 0 && (
         <div className="mb-4">
           <h2 className="font-bold text-primary mb-3 text-sm uppercase tracking-wider flex items-center gap-1.5"><Landmark size={14} /> Bank Income</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bankIncome.map(item => (
+            {shownBankIncome.map(item => (
               <div key={item.id} className="card p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
@@ -209,21 +231,21 @@ export default function Income() {
       )}
 
       {/* Recurring manual */}
-      {recurring.length > 0 && (
+      {shownRecurring.length > 0 && (
         <div className="mb-4">
           <h2 className="font-bold text-primary mb-3 text-sm uppercase tracking-wider flex items-center gap-1.5"><Repeat size={14} /> Recurring Income</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recurring.map(item => <IncomeCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />)}
+            {shownRecurring.map(item => <IncomeCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />)}
           </div>
         </div>
       )}
 
       {/* One-time manual */}
-      {oneTime.length > 0 && (
+      {shownOneTime.length > 0 && (
         <div className="mb-4">
           <h2 className="font-bold text-primary mb-3 text-sm uppercase tracking-wider flex items-center gap-1.5"><Banknote size={14} /> One-Time Income</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {oneTime.map(item => <IncomeCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />)}
+            {shownOneTime.map(item => <IncomeCard key={item.id} item={item} onEdit={openEdit} onDelete={handleDelete} />)}
           </div>
         </div>
       )}

@@ -15,9 +15,10 @@ import { usePlaid } from '../hooks/usePlaid'
 import { fmtCurrency as fmt } from '../lib/format'
 import Import from './Import'
 import ProGate from '../components/ProGate'
-import { PageHeader, StatCard, EmptyState, PageSkeleton } from '../components/ui'
+import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
 import MerchantLogo from '../components/MerchantLogo'
+import { DATE_RANGE_OPTIONS, inDateRange } from '../lib/dateRange'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -146,6 +147,7 @@ export default function Accounts() {
   const [selectedAcc, setSelectedAcc] = useState(null)
   const [txnFilter,   setTxnFilter]   = useState('all')
   const [search,      setSearch]      = useState('')
+  const [dateRange,   setDateRange]   = useState('all')
   const [tab,         setTab]         = useState('accounts') // 'accounts' | 'connect' | 'import'
 
   const { isPro, proLoading } = useIsPro(user.id)
@@ -294,9 +296,10 @@ export default function Accounts() {
       const matchAcc    = !selectedAcc || t.account_id === selectedAcc
       const matchFilter = txnFilter === 'all' || t.kind === txnFilter
       const matchSearch = !search || t.description.toLowerCase().includes(search.toLowerCase()) || (t.merchant || '').toLowerCase().includes(search.toLowerCase())
-      return matchAcc && matchFilter && matchSearch
+      const matchDate   = inDateRange(t.date, dateRange)
+      return matchAcc && matchFilter && matchSearch && matchDate
     })
-  }, [transactions, selectedAcc, txnFilter, search])
+  }, [transactions, selectedAcc, txnFilter, search, dateRange])
 
   if (proLoading || loading) return <PageSkeleton stats={2} hero={false} />
 
@@ -624,6 +627,9 @@ export default function Accounts() {
             <div className="flex gap-2 mb-3">
               <input className="input-field flex-1 text-sm" placeholder="Search transactions…"
                 value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+            <div className="mb-3">
+              <SegTabs small tabs={DATE_RANGE_OPTIONS} active={dateRange} onChange={setDateRange} />
             </div>
             {/* Active pill uses the standard seg-tab colors — the old version painted
                 "All" white-on-white in light mode (white bg + white text). */}
