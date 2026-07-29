@@ -356,3 +356,158 @@ create table if not exists transaction_rules (
 alter table transaction_rules enable row level security;
 create policy "Users manage own transaction rules" on transaction_rules for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- =============================================
+-- HOUSEHOLD SHARING (migration: create_household_sharing, applied 2026-07-28)
+-- Lets a small group of users share core money data with each other. Opt-in and
+-- additive — a solo user with no household sees zero behavior change.
+-- Shared scope (v1): accounts, account_transactions, income, expenses, goals, budgets.
+-- NOT shared: investments, loans, subscriptions, AI Coach — those stay personal-only.
+-- Managed from Settings.jsx via src/hooks/useHousehold.js.
+-- =============================================
+create table if not exists households (
+  id uuid default gen_random_uuid() primary key,
+  name text not null default 'My Household',
+  created_by uuid references auth.users(id) on delete cascade not null,
+  created_at timestamptz not null default now()
+);
+alter table households enable row level security;
+
+-- unique(user_id): a user belongs to at most one household at a time (MVP simplification).
+create table if not exists household_members (
+  household_id uuid references households(id) on delete cascade not null,
+  user_id uuid references auth.users(id) on delete cascade not null unique,
+  joined_at timestamptz not null default now(),
+  primary key (household_id, user_id)
+);
+alter table household_members enable row level security;
+
+create table if not exists household_invite_codes (
+  id uuid default gen_random_uuid() primary key,
+  household_id uuid references households(id) on delete cascade not null,
+  code text not null unique,
+  created_by uuid references auth.users(id) on delete cascade not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+alter table household_invite_codes enable row level security;
+
+create policy "Members can view their household" on households for select
+  using (id in (select household_id from household_members where user_id = auth.uid()));
+create policy "Users can create a household" on households for insert
+  with check (created_by = auth.uid());
+
+-- Joining someone ELSE happens via redeem_household_invite() below, not a direct insert —
+-- the insert policy here only covers adding your own membership row.
+create policy "Members can view their household roster" on household_members for select
+  using (household_id in (select household_id from household_members hm where hm.user_id = auth.uid()));
+create policy "Users can add their own membership" on household_members for insert
+  with check (user_id = auth.uid());
+create policy "Users can leave their household" on household_members for delete
+  using (user_id = auth.uid());
+
+-- Deliberately NOT selectable by code alone (would let anyone enumerate codes) — redemption
+-- goes through redeem_household_invite() instead, which runs with elevated privileges
+-- specifically to look up a code without needing a public SELECT policy.
+create policy "Members can view their household's invite codes" on household_invite_codes for select
+  using (household_id in (select household_id from household_members where user_id = auth.uid()));
+create policy "Members can create invite codes for their household" on household_invite_codes for insert
+  with check (household_id in (select household_id from household_members where user_id = auth.uid()));
+create policy "Members can revoke their household's invite codes" on household_invite_codes for delete
+  using (household_id in (select household_id from household_members where user_id = auth.uid()));
+
+-- Atomically validates + redeems an invite code, adding the calling user to that household.
+create or replace function redeem_household_invite(p_code text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_household_id uuid;
+begin
+  select household_id into v_household_id
+  from household_invite_codes
+  where code = p_code and expires_at > now();
+
+  if v_household_id is null then
+    raise exception 'Invalid or expired invite code';
+  end if;
+
+  insert into household_members (household_id, user_id)
+  values (v_household_id, auth.uid())
+  on conflict (user_id) do update set household_id = excluded.household_id, joined_at = now();
+
+  return v_household_id;
+end;
+$$;
+grant execute on function redeem_household_invite(text) to authenticated;
+
+-- Extends the shared-scope tables' original "own rows only" policy (see each table's
+-- CREATE POLICY above) with an OR clause for household peers. Household members can view/
+-- edit/delete each other's rows once joined (like a shared checkbook) — INSERTs still default
+-- to the caller's own auth.uid() client-side, same trust model the original policies already
+-- relied on (none of them had an explicit WITH CHECK either). account_transactions is the one
+-- exception: it keeps an explicit `with check (auth.uid() = user_id)` so even household members
+-- can only ever insert transactions under their own identity (extra care around Plaid-synced
+-- data/plaid_transaction_id attribution).
+drop policy if exists "Users can manage own income" on income;
+create policy "Users can manage own or household income" on income for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can manage own expenses" on expenses;
+create policy "Users can manage own or household expenses" on expenses for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can manage own goals" on goals;
+create policy "Users can manage own or household goals" on goals for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can manage own accounts" on accounts;
+create policy "Users can manage own or household accounts" on accounts for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users manage own transactions" on account_transactions;
+create policy "Users manage own or household transactions" on account_transactions for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  )
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users manage own budgets" on budgets;
+create policy "Users manage own or household budgets" on budgets for all
+  using (
+    auth.uid() = user_id or user_id in (
+      select hm2.user_id from household_members hm1
+      join household_members hm2 on hm2.household_id = hm1.household_id
+      where hm1.user_id = auth.uid()
+    )
+  );

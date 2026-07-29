@@ -2,6 +2,7 @@
 // Zero JSX — uses createElement so this file stays plain .js (no rename needed)
 import { createContext, useContext, useState, useEffect, useCallback, createElement } from 'react'
 import { supabase } from '../lib/supabase'
+import { useHousehold } from './useHousehold'
 
 // ── Intelligent auto-categorizer ─────────────────────────────────────────────
 // Maps description/merchant keywords → { category, subcategory, kind }
@@ -93,25 +94,29 @@ export function TransactionProvider({ userId, children }) {
   const [transactions, setTransactions] = useState([])
   const [accounts,     setAccounts]     = useState([])
   const [loading,      setLoading]      = useState(true)
+  // Accounts + transactions are the shared-scope data that's actually wired up to read
+  // household-wide (see src/hooks/useHousehold.js) — householdUserIds falls back to
+  // [userId] alone when there's no household, so solo users see identical behavior.
+  const { householdUserIds } = useHousehold(userId)
 
   const load = useCallback(async () => {
-    if (!userId) return
+    if (!userId || householdUserIds.length === 0) return
     const [{ data: txns }, { data: accs }] = await Promise.all([
       supabase
         .from('account_transactions')
         .select('*, accounts(name, type, institution, card_last4, card_type)')
-        .eq('user_id', userId)
+        .in('user_id', householdUserIds)
         .order('date', { ascending: false }),
       supabase
         .from('accounts')
         .select('*')
-        .eq('user_id', userId)
+        .in('user_id', householdUserIds)
         .order('created_at', { ascending: false }),
     ])
     setTransactions(txns || [])
     setAccounts(accs     || [])
     setLoading(false)
-  }, [userId])
+  }, [userId, householdUserIds])
 
   useEffect(() => { load() }, [load])
 

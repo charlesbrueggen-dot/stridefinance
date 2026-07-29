@@ -651,14 +651,18 @@ export default function Accounts() {
                         {acc.type === 'Credit Card' ? '-' : ''}{fmt(acc.balance)}
                       </p>
                       {selectedAcc === acc.id && (
-                        <div className="flex gap-1">
-                          <button onClick={e => { e.stopPropagation(); openEditAcc(acc) }}
-                            className="text-xs text-muted hover:text-primary px-2 py-1 rounded border"
-                            style={{ borderColor: 'var(--card-border)' }}>Edit</button>
-                          <button onClick={e => { e.stopPropagation(); handleDeleteAcc(acc.id) }}
-                            className="text-xs text-muted hover:text-red-500 px-2 py-1 rounded border"
-                            style={{ borderColor: 'var(--card-border)' }}>Delete</button>
-                        </div>
+                        acc.user_id === user.id ? (
+                          <div className="flex gap-1">
+                            <button onClick={e => { e.stopPropagation(); openEditAcc(acc) }}
+                              className="text-xs text-muted hover:text-primary px-2 py-1 rounded border"
+                              style={{ borderColor: 'var(--card-border)' }}>Edit</button>
+                            <button onClick={e => { e.stopPropagation(); handleDeleteAcc(acc.id) }}
+                              className="text-xs text-muted hover:text-red-500 px-2 py-1 rounded border"
+                              style={{ borderColor: 'var(--card-border)' }}>Delete</button>
+                          </div>
+                        ) : (
+                          <span className="text-xs px-2 py-1 rounded border text-muted" style={{ borderColor: 'var(--card-border)' }}>household</span>
+                        )
                       )}
                     </div>
                   </div>
@@ -715,8 +719,9 @@ export default function Accounts() {
               <div className="space-y-2">
                 {visibleTxns.map(txn => {
                   const acc = accounts.find(a => a.id === txn.account_id)
+                  const isOwn = txn.user_id === user.id
                   return (
-                    <SwipeableRow key={txn.id} onEdit={() => openEditTxn(txn)} onDelete={() => handleDeleteTxn(txn.id)}>
+                    <SwipeableRow key={txn.id} onEdit={isOwn ? () => openEditTxn(txn) : undefined} onDelete={isOwn ? () => handleDeleteTxn(txn.id) : undefined}>
                     <div className="card p-4 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <MerchantLogo name={txn.merchant || txn.description} FallbackIcon={KIND_ICON[txn.kind]}
@@ -742,6 +747,12 @@ export default function Accounts() {
                                 <Sparkle size={11} /> auto
                               </span>
                             )}
+                            {!isOwn && (
+                              <span className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0"
+                                style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)' }}>
+                                household
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted">
                             {txn.kind === 'expense'
@@ -757,8 +768,10 @@ export default function Accounts() {
                         <p className="font-black text-sm" style={{ color: KIND_STRONG[txn.kind] }}>
                           {txn.kind === 'expense' ? '-' : txn.kind === 'income' ? '+' : ''}{fmt(txn.amount)}
                         </p>
-                        <button onClick={() => openEditTxn(txn)} className="text-muted hover:text-primary"><Pencil size={14} /></button>
-                        <button onClick={() => handleDeleteTxn(txn.id)} className="text-muted hover:text-red-500"><Trash2 size={14} /></button>
+                        {isOwn && <>
+                          <button onClick={() => openEditTxn(txn)} className="text-muted hover:text-primary"><Pencil size={14} /></button>
+                          <button onClick={() => handleDeleteTxn(txn.id)} className="text-muted hover:text-red-500"><Trash2 size={14} /></button>
+                        </>}
                       </div>
                     </div>
                     </SwipeableRow>

@@ -105,6 +105,7 @@ export default function Expenses() {
       merchant:    t.merchant,
       card_last4:  t.card_last4,
       account_id:  t.account_id,
+      user_id:     t.user_id,
       _source:     'account_txn',
       _account:    accounts.find(a => a.id === t.account_id),
     }))
@@ -272,9 +273,10 @@ export default function Expenses() {
           {filtered.map((item, idx) => {
             const isRecurring = item.frequency && item.frequency !== 'none'
             const isAccTxn    = item._source === 'account_txn'
+            const isOwn       = item.user_id === user.id
             return (
               <SwipeableRow key={`${item._source}-${item.id}`} isLast={idx === filtered.length - 1}
-                onEdit={() => openEdit(item)} onDelete={() => handleDelete(item)}>
+                onEdit={isOwn ? () => openEdit(item) : undefined} onDelete={isOwn ? () => handleDelete(item) : undefined}>
               <div className="list-row">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <MerchantLogo name={item.merchant || item.description} FallbackIcon={isAccTxn ? CreditCard : Receipt} size={36} />
@@ -300,6 +302,12 @@ export default function Expenses() {
                           {item.label}
                         </span>
                       )}
+                      {!isOwn && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                          style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)', color: 'var(--text-muted)' }}>
+                          household
+                        </span>
+                      )}
                     </div>
                     <p className="text-muted text-xs mt-0.5 truncate">
                       {item.category} · {item.subcategory} · {item.date}
@@ -310,8 +318,10 @@ export default function Expenses() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <p className="font-black text-sm tnum" style={{ color: 'var(--negative-strong)' }}>-{fmt(item.amount)}</p>
-                  <button onClick={() => openEdit(item)} className="text-muted hover:text-primary transition-colors p-1"><Pencil size={14} /></button>
-                  <button onClick={() => handleDelete(item)} className="transition-colors p-1" style={{ color: 'var(--negative-strong)' }}><Trash2 size={14} /></button>
+                  {isOwn && <>
+                    <button onClick={() => openEdit(item)} className="text-muted hover:text-primary transition-colors p-1"><Pencil size={14} /></button>
+                    <button onClick={() => handleDelete(item)} className="transition-colors p-1" style={{ color: 'var(--negative-strong)' }}><Trash2 size={14} /></button>
+                  </>}
                 </div>
               </div>
               </SwipeableRow>
