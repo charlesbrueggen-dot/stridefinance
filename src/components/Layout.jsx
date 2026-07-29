@@ -6,6 +6,10 @@ import {
   MoreHorizontal, Settings as SettingsIcon,
 } from 'lucide-react'
 import { useAuth } from '../App'
+import { useTransactions } from '../hooks/useTransactions'
+import { netWorthHistory } from '../lib/netWorthHistory'
+import { fmtCompact } from '../lib/format'
+import Sparkline from './Sparkline'
 
 // Grouped navigation — every route keeps working, they're just organized by intent.
 const NAV_SECTIONS = [
@@ -59,6 +63,30 @@ function Logo({ dark, size = 36 }) {
   return <img src={dark ? '/logo-dark.png' : '/logo.png'} alt="Stride" style={{ width: size, height: size }} className="object-contain" />
 }
 
+// Cheap sidebar trend indicator — reuses data the TransactionProvider already
+// loads app-wide (accounts + synced transactions), so it costs zero extra
+// network requests. It's a cash-position trend, not the full net worth figure
+// shown on the Net Worth page (that also folds in investments/assets/loans),
+// but for most users cash dominates net worth, so it's a fair approximation
+// for a glanceable sidebar sparkline.
+function SidebarNetWorth() {
+  const { accounts, expenseTxns, incomeTxns } = useTransactions()
+  if (accounts.length === 0) return null
+  const currentCash = accounts.reduce((s, a) => s + (a.type === 'Credit Card' ? -a.balance : a.balance), 0)
+  const history = netWorthHistory({ allIncome: incomeTxns, allExpenses: expenseTxns, currentCash, months: 6 })
+  const values = history.map(h => h.total)
+  if (values.every(v => v === values[0])) return null // flat/no history yet — nothing worth showing
+
+  return (
+    <Link to="/networth" className="no-underline block px-3 py-3 mb-1 rounded-xl transition-colors hover:opacity-80"
+      style={{ background: 'var(--nav-soft)' }}>
+      <p className="text-xs text-muted font-semibold mb-1">Net worth (cash)</p>
+      <p className="font-black text-primary text-sm mb-1.5 tnum">{fmtCompact(currentCash)}</p>
+      <Sparkline values={values} height={24} />
+    </Link>
+  )
+}
+
 export default function Layout({ dark, setDark }) {
   const [moreOpen, setMoreOpen] = useState(false)
   const { user } = useAuth()
@@ -84,6 +112,10 @@ export default function Layout({ dark, setDark }) {
           <Logo dark={dark} size={40} />
           <span className="font-black text-xl text-primary tracking-tight">Stride</span>
         </Link>
+
+        <div className="px-3">
+          <SidebarNetWorth />
+        </div>
 
         <nav className="flex-1 overflow-y-auto px-3 pb-4">
           {NAV_SECTIONS.map(section => (

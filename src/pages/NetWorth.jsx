@@ -10,10 +10,13 @@ import {
   CreditCard, TrendingUp, HandCoins, ArrowUpRight, ArrowDownRight,
   DollarSign, Pencil, Trash2, X,
 } from 'lucide-react'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../App'
 import { useTransactions } from '../hooks/useTransactions'
-import { fmtCurrency as fmt } from '../lib/format'
+import { fmtCurrency as fmt, fmtCompact } from '../lib/format'
+import { netWorthHistory } from '../lib/netWorthHistory'
+import { useDarkMode } from '../hooks/useDarkMode'
 import { PageHeader, EmptyState, PageSkeleton } from '../components/ui'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -23,6 +26,7 @@ const CAT_ICONS  = { 'Real Estate': Home, Vehicle: Car, Electronics: Laptop, Jew
 export default function NetWorth() {
   const { user }                             = useAuth()
   const { accounts, expenseTxns, incomeTxns } = useTransactions()
+  const dark = useDarkMode()
 
   const [assets,      setAssets]      = useState([])
   const [investments, setInvestments] = useState([])
@@ -40,9 +44,9 @@ export default function NetWorth() {
     const [{ data: a }, { data: inv }, { data: inc }, { data: ln }, { data: exp }] = await Promise.all([
       supabase.from('assets').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('investments').select('*').eq('user_id', user.id),
-      supabase.from('income').select('amount').eq('user_id', user.id),
+      supabase.from('income').select('amount, date').eq('user_id', user.id),
       supabase.from('loans').select('*').eq('user_id', user.id),
-      supabase.from('expenses').select('amount, recurring').eq('user_id', user.id),
+      supabase.from('expenses').select('amount, recurring, date').eq('user_id', user.id),
     ])
     setAssets(a || []); setInvestments(inv || []); setIncome(inc || [])
     setLoans(ln || []); setExpenses(exp || [])
@@ -89,6 +93,27 @@ export default function NetWorth() {
   const cashPosition = acctAssets > 0 ? acctAssets + acctNetCash : legacyCash
   const netWorth     = cashPosition + physicalAssets + portValue + moneyLent - moneyOwed - acctDebt
 
+  // ── Net worth over time ─────────────────────────────────────────────────
+  // No historical snapshots exist — reconstructed from data already on hand
+  // (see src/lib/netWorthHistory.js for the approach/caveats). The walk-back
+  // has to use whichever income/expense source actually explains cashPosition
+  // above — real account transactions when using account balances, or the
+  // legacy income/expenses tables when falling back to that estimate — or the
+  // backward math wouldn't reconcile with today's real cash figure.
+  const usingRealCash = acctAssets > 0
+  const cashFlowIncome   = useMemo(
+    () => usingRealCash ? incomeTxns.map(t => ({ amount: t.amount, date: t.date })) : income,
+    [usingRealCash, incomeTxns, income]
+  )
+  const cashFlowExpenses = useMemo(
+    () => usingRealCash ? expenseTxns.map(t => ({ amount: t.amount, date: t.date })) : expenses.filter(e => !e.recurring),
+    [usingRealCash, expenseTxns, expenses]
+  )
+  const history = useMemo(() => netWorthHistory({
+    allIncome: cashFlowIncome, allExpenses: cashFlowExpenses, currentCash: cashPosition - acctDebt,
+    investments, assets, loans, months: 12,
+  }), [cashFlowIncome, cashFlowExpenses, cashPosition, acctDebt, investments, assets, loans])
+
   const breakdown = [
     { label: 'Bank Accounts',     value: acctAssets,     Icon: Landmark,   show: acctAssets > 0 },
     { label: 'Cash & Income Net', value: legacyCash,     Icon: DollarSign, show: acctAssets === 0 },
@@ -117,6 +142,27 @@ export default function NetWorth() {
           )}
         </div>
         <span className="text-muted opacity-40">{netWorth >= 0 ? <ArrowUpRight size={44} /> : <ArrowDownRight size={44} />}</span>
+      </div>
+
+      {/* Net Worth Over Time — reconstructed, not a stored snapshot; see netWorthHistory.js */}
+      <div className="card p-5 mb-4">
+        <p className="font-bold text-primary text-sm mb-1">Net Worth Over Time</p>
+        <p className="text-muted text-xs mb-3">Trailing 12 months · estimated from your transaction history</p>
+        <ResponsiveContainer width="100%" height={200}>
+          <AreaChart data={history} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <defs>
+              <linearGradient id="colorNetWorth" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={dark ? '#10b981' : '#1a5a94'} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={dark ? '#10b981' : '#1a5a94'} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
+            <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtCompact} />
+            <Tooltip formatter={v => fmt(v)} contentStyle={{ background: 'var(--modal-bg)', border: '1px solid var(--card-border)', borderRadius: 10, fontSize: 13 }} />
+            <Area type="monotone" dataKey="total" name="Net Worth" stroke={dark ? '#10b981' : '#1a5a94'} fill="url(#colorNetWorth)" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Breakdown Cards */}
