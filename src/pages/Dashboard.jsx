@@ -15,6 +15,7 @@ import { bucketMonthlyTotals, computeSavingsRate } from '../lib/savingsRate'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SectionTitle } from '../components/ui'
 import MerchantLogo from '../components/MerchantLogo'
 import MonthFlipper, { monthKeyNow, monthLabel } from '../components/MonthFlipper'
+import SetupChecklist from '../components/SetupChecklist'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const dark = useDarkMode()
   const [pieActiveIndex, setPieActiveIndex] = useState(null)
   const [spendActiveIndex, setSpendActiveIndex] = useState(null)
-  const { expenseTxns, incomeTxns } = useTransactions()
+  const { expenseTxns, incomeTxns, accounts } = useTransactions()
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef(null)
   const [viewMonth, setViewMonth] = useState(monthKeyNow())
@@ -196,6 +197,17 @@ export default function Dashboard() {
           <ArrowRight size={18} style={{ color: dark ? '#10b981' : 'rgba(255,255,255,0.8)' }} />
         </div>
       </Link>
+
+      {/* ── GET SET UP CHECKLIST ── */}
+      <SetupChecklist
+        storageKey={`stride-checklist-dismissed-${user.id}`}
+        items={[
+          { label: 'Connect or add an account', done: accounts.length > 0, path: '/accounts' },
+          { label: 'Log income or an expense', done: allIncome.length > 0 || allExpenses.length > 0, path: '/expenses' },
+          { label: 'Set a savings goal', done: goals.length > 0, path: '/goals' },
+          { label: 'Create a budget', done: budgets.length > 0, path: '/goals' },
+        ]}
+      />
 
       {/* ── MONTH AT A GLANCE ── */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
