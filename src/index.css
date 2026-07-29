@@ -49,6 +49,12 @@
   --nav-item-hover: rgba(255,255,255,0.08);
   --nav-soft: rgba(255,255,255,0.1);
   --skeleton-shine: rgba(255,255,255,0.22);
+
+  /* Merchant logo chip (MerchantLogo.jsx) — white fill so favicons designed for a
+     light background render correctly; a plain white square/ring reads fine here
+     since the page itself is blue, not black. */
+  --logo-bg: #ffffff;
+  --logo-border: var(--card-border);
 }
 
 /* ── STRIDE DARK MODE ── Black bg, emerald green text */
@@ -90,6 +96,13 @@
   --nav-item-hover: rgba(16,185,129,0.06);
   --nav-soft: rgba(16,185,129,0.1);
   --skeleton-shine: rgba(16,185,129,0.08);
+
+  /* A plain white logo chip reads as a glaring white square against the black
+     page here, so dark mode swaps it for a black fill with a green accent ring
+     instead — most real favicons are already high-contrast icons designed to
+     work in a browser tab regardless of theme, so black behind them is safe. */
+  --logo-bg: #000000;
+  --logo-border: var(--accent);
 }
 
 body {

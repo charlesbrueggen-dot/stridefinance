@@ -24,7 +24,7 @@ export default function MerchantLogo({ name, FallbackIcon, size = 36, fallbackBg
 
   return (
     <div className="flex-shrink-0 flex items-center justify-center rounded-xl overflow-hidden"
-      style={{ width: size, height: size, background: '#fff', border: '1px solid var(--card-border)' }}>
+      style={{ width: size, height: size, background: 'var(--logo-bg)', border: '1px solid var(--logo-border)' }}>
       <img
         src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
         alt=""
