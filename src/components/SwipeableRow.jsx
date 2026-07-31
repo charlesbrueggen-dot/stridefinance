@@ -60,6 +60,10 @@ export default function SwipeableRow({ children, onEdit, onDelete, isLast = fals
           transition: isDragging ? 'none' : 'transform 0.2s ease',
           touchAction: 'pan-y',
           borderBottom: isLast ? 'none' : undefined,
+          // Must be opaque — some row markup (e.g. Expenses.jsx's .list-row) has no
+          // background of its own, so without this the reveal buttons behind show
+          // through at rest instead of staying hidden until actually swiped open.
+          background: 'var(--card-bg-solid)',
         }}
       >
         {children}
