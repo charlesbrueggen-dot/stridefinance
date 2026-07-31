@@ -29,7 +29,9 @@ export default function GoalProjection({ goal }) {
           <span className="text-muted">Extra monthly contribution</span>
           <span className="font-bold text-primary tnum">{fmt(extra)}/mo</span>
         </div>
-        <input type="range" min="0" max="1000" step="25" value={extra} onChange={e => setExtra(Number(e.target.value))} />
+        <input type="range" min="0" max="10000" step="50" value={extra} onChange={e => setExtra(Number(e.target.value))} />
+        <input type="number" min="0" step="50" value={extra} onChange={e => setExtra(Math.max(0, Number(e.target.value) || 0))}
+          className="input-field mt-2 text-sm" placeholder="Or type an exact amount" />
       </div>
       <div className="mb-3">
         <div className="flex justify-between text-xs mb-1">
