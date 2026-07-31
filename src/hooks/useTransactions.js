@@ -28,17 +28,20 @@ const CATEGORY_RULES = [
   { pattern: /daycare|preschool|childcare|babysit|tuition|student.?loan|\bschool\b|university|college/i, kind: 'expense', category: 'Needs', subcategory: 'Other' },
 
   // ── WANTS ────────────────────────────────────────────────────────────────
-  { pattern: /restaurant|cafe|coffee|starbucks|dunkin|mcdonald|burger|taco|chipotle|subway|pizza|wendy'?s|kfc\b|popeyes|panda.?express|chick.?fil.?a|five.?guys|in.?n.?out|domino'?s|papa.?john|jimmy.?john|sonic.?drive|dairy.?queen|panera|deli\b|bakery|brunch|food.?truck|doordash|grubhub|uber.?eat|seamless|postmates/i, kind: 'expense', category: 'Wants', subcategory: 'Dining' },
+  { pattern: /restaurant|cafe|coffee|starbucks|dunkin|mcdonald|burger|taco|chipotle|subway|pizza|wendy'?s|kfc\b|popeyes|panda.?express|chick.?fil.?a|five.?guys|in.?n.?out|domino'?s|papa.?john|jimmy.?john|sonic.?drive|dairy.?queen|panera|deli\b|bakery|brunch|food.?truck|doordash|grubhub|uber.?eat|seamless|postmates|sushi|\bthai\b|\bramen\b|\bpho\b|bbq|barbecue|wingstop|chili'?s|applebee|olive.?garden|outback|cheesecake.?factory|buffalo.?wild.?wings|little.?caesars|steakhouse|grill\b|diner\b/i, kind: 'expense', category: 'Wants', subcategory: 'Dining' },
   { pattern: /nike|adidas|zara|h&m|gap\b|old.?navy|nordstrom|macy|tjmaxx|marshalls|ross\b|forever.?21|uniqlo|shoe|clothing|apparel|fashion|sephora|ulta|bath.?.?body.?works|salon|barber|haircut|\bspa\b|nail.?salon|massage/i, kind: 'expense', category: 'Wants', subcategory: 'Shopping' },
   { pattern: /amazon|ebay|etsy|walmart|\btarget\b|best.?buy|costco|home.?depot|lowes|ikea|wayfair|gamestop|barnes.?.?noble|dick'?s.?sporting|michaels|hobby.?lobby|petco|petsmart|staples|office.?depot/i, kind: 'expense', category: 'Wants', subcategory: 'Shopping' },
   { pattern: /netflix|hulu|disney|spotify|apple.?(music|tv|icloud)|icloud|youtube.?premium|hbo|paramount|peacock|crunchyroll|dropbox|google.?one|xbox.?game.?pass|playstation.?plus|ps.?plus|audible|kindle.?unlimited|patreon|twitch.?sub/i, kind: 'expense', category: 'Wants', subcategory: 'Subscriptions' },
   { pattern: /\bgym\b|planet.?fitness|equinox|crossfit|peloton|fitness/i, kind: 'expense', category: 'Wants', subcategory: 'Entertainment' },
-  { pattern: /movie|cinema|amc\b|regal\b|concert|ticket|eventbrite|stubhub|ticketmaster|steam\b|playstation.?store|nintendo.?eshop|bowling|arcade|escape.?room|\bzoo\b|museum|aquarium|\bgolf\b/i, kind: 'expense', category: 'Wants', subcategory: 'Entertainment' },
+  { pattern: /movie|cinema|amc\b|regal\b|concert|ticket|eventbrite|stubhub|ticketmaster|live.?nation|steam\b|playstation.?store|nintendo.?eshop|bowling|arcade|escape.?room|\bzoo\b|museum|aquarium|\bgolf\b/i, kind: 'expense', category: 'Wants', subcategory: 'Entertainment' },
   { pattern: /hotel|airbnb|vrbo|booking\.com|expedia|flight|airline|delta\b|united\b|southwest|spirit.?airlines|jetblue|alaska.?air|frontier.?air|allegiant|marriott|hilton|hyatt|rental.?car|hertz|avis\b|enterprise.?rent|greyhound|cruise|carnival.?cruise|royal.?caribbean/i, kind: 'expense', category: 'Wants', subcategory: 'Travel' },
   { pattern: /bar\b|nightclub|brewery|winery|liquor|alcohol/i, kind: 'expense', category: 'Wants', subcategory: 'Dining' },
 
   // ── SAVINGS / TRANSFERS ───────────────────────────────────────────────────
-  { pattern: /transfer.?to.?savings|move.?to.?savings|savings.?deposit/i, kind: 'expense', category: 'Savings', subcategory: 'Emergency Fund' },
+  // ".*" (not ".?") between "transfer/move" and "savings" — real bank descriptions often
+  // inject the destination account name in between (e.g. "Transfer to Chase Savings"),
+  // which a single-character gap can't span.
+  { pattern: /transfer.*to.*savings|move.*to.*savings|savings.?deposit/i, kind: 'expense', category: 'Savings', subcategory: 'Emergency Fund' },
   { pattern: /401k|roth.?ira|ira.?contribution|fidelity|vanguard|schwab|etrade|robinhood|brokerage|m1.?finance|wealthfront|betterment|acorns|sofi.?invest|coinbase|crypto|bitcoin/i, kind: 'expense', category: 'Savings', subcategory: 'Investment' },
   { pattern: /vacation.?fund|trip.?savings/i,                 kind: 'expense', category: 'Savings', subcategory: 'Vacation' },
 

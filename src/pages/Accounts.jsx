@@ -147,6 +147,8 @@ export default function Accounts() {
   const [savingRule, setSavingRule] = useState(false)
   const [applyingRules, setApplyingRules] = useState(false)
   const [applyResult, setApplyResult] = useState(null)
+  const [recategorizing, setRecategorizing] = useState(false)
+  const [recategorizeResult, setRecategorizeResult] = useState(null)
 
   const [showAccModal, setShowAccModal] = useState(false)
   const [editAcc,      setEditAcc]      = useState(null)
@@ -346,6 +348,47 @@ export default function Accounts() {
     }
     setApplyResult(applied)
     setApplyingRules(false)
+    reload()
+  }
+
+  // Re-runs the app's built-in keyword categorization (the CATEGORY_RULES list in
+  // useTransactions.js) against existing transactions — separate from handleApplyRules above,
+  // which only ever reapplies the user's own custom rules. This is what actually fixes old
+  // transactions stuck in "Other" (or mis-categorized) after CATEGORY_RULES gets improved —
+  // editing that list only changes categorization for transactions created *after* the edit,
+  // never retroactively. Scoped to auto_categorized transactions only, so a manually-corrected
+  // category is never silently overwritten; and only applied when the new guess is itself
+  // confident (matched a rule, not just the generic fallback), so a transaction that still
+  // doesn't match anything keeps whatever category it already had instead of being reset to
+  // a generic "Other".
+  const handleRecategorize = async () => {
+    setRecategorizing(true); setRecategorizeResult(null)
+    const toUpdate = transactions
+      .filter(t => t.auto_categorized)
+      .map(t => ({ t, match: autoCategorize(t.description, t.merchant, rules) }))
+      .filter(({ match }) => match.auto || match.fromRule)
+      .filter(({ t, match }) =>
+        t.kind !== match.kind || t.category !== match.category ||
+        t.subcategory !== match.subcategory || (match.source && t.source !== match.source)
+      )
+
+    const BATCH = 15
+    let applied = 0
+    for (let i = 0; i < toUpdate.length; i += BATCH) {
+      const batch = toUpdate.slice(i, i + BATCH)
+      await Promise.all(batch.map(({ t, match }) =>
+        supabase.from('account_transactions').update({
+          kind: match.kind,
+          category: match.kind === 'expense' ? match.category : null,
+          subcategory: match.kind === 'expense' ? match.subcategory : null,
+          source: match.kind === 'income' ? match.source : null,
+          auto_categorized: true,
+        }).eq('id', t.id).eq('user_id', user.id)
+      ))
+      applied += batch.length
+    }
+    setRecategorizeResult(applied)
+    setRecategorizing(false)
     reload()
   }
 
@@ -819,6 +862,29 @@ export default function Accounts() {
               <Check size={14} /> Updated {applyResult} transaction{applyResult !== 1 ? 's' : ''} to match your rules.
             </div>
           )}
+
+          {/* Separate from the custom-rules button above — this re-runs Stride's own
+              built-in keyword categorization (not your custom rules) against transactions
+              you already have, so improvements to that keyword list actually reach old
+              transactions instead of only affecting new ones. */}
+          <div className="card p-4 mb-5">
+            <p className="font-bold text-primary text-sm mb-1">Improve existing categorization</p>
+            <p className="text-muted text-xs mb-3">
+              Re-checks transactions still categorized automatically against Stride's latest built-in
+              rules — fixes ones stuck in "Other" without touching anything you've manually corrected.
+            </p>
+            <button onClick={handleRecategorize} disabled={recategorizing} className="btn-secondary w-full justify-center">
+              {recategorizing ? <><RefreshCw size={15} className="animate-spin" /> Re-checking…</> : 'Re-check categorization'}
+            </button>
+            {recategorizeResult !== null && (
+              <div className="mt-3 p-3 rounded-xl text-xs font-medium flex items-center gap-1.5"
+                style={{ background: 'var(--positive-bg)', border: '1px solid var(--positive)', color: 'var(--positive)' }}>
+                <Check size={14} /> {recategorizeResult === 0
+                  ? 'Everything already matches the latest rules.'
+                  : `Updated ${recategorizeResult} transaction${recategorizeResult !== 1 ? 's' : ''}.`}
+              </div>
+            )}
+          </div>
 
           {rules.length === 0 ? (
             <div className="card" style={{ border: '2px dashed var(--card-border)' }}>
