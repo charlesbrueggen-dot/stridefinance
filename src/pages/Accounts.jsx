@@ -18,6 +18,7 @@ import Import from './Import'
 import ProGate from '../components/ProGate'
 import { PageHeader, StatCard, EmptyState, PageSkeleton, SegTabs } from '../components/ui'
 import { useIsPro } from '../hooks/useIsPro'
+import { useDarkMode } from '../hooks/useDarkMode'
 import MerchantLogo from '../components/MerchantLogo'
 import { DATE_RANGE_OPTIONS, inDateRange } from '../lib/dateRange'
 import SwipeableRow from '../components/SwipeableRow'
@@ -165,6 +166,7 @@ export default function Accounts() {
   const [tab,         setTab]         = useState('accounts') // 'accounts' | 'connect' | 'import'
 
   const { isPro, proLoading } = useIsPro(user.id)
+  const dark = useDarkMode()
 
   // ── Account CRUD ──────────────────────────────────────────────────────────
   const openAddAcc  = () => { setEditAcc(null); setAccForm(blankAccount()); setShowAccModal(true) }
@@ -594,8 +596,15 @@ export default function Accounts() {
                     onClick={() => setSelectedAcc(acc.id === selectedAcc ? null : acc.id)}
                     style={{ borderColor: selectedAcc === acc.id ? 'var(--positive)' : undefined }}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-primary"
-                        style={{ background: acc.color || 'var(--input-bg)', border: '1px solid var(--card-border)' }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: acc.color || 'var(--input-bg)',
+                          border: '1px solid var(--card-border)',
+                          // Dark mode's default icon color (theme green) can nearly vanish against
+                          // some of the CARD_COLORS swatches (e.g. the teal one) — a fixed color
+                          // that doesn't depend on the swatch reads reliably against all of them.
+                          color: acc.color ? (dark ? '#000' : '#fff') : 'var(--text-primary)',
+                        }}>
                         <TypeIcon type={acc.type} size={20} />
                       </div>
                       <div>
@@ -633,8 +642,15 @@ export default function Accounts() {
                     onClick={() => setSelectedAcc(acc.id === selectedAcc ? null : acc.id)}
                     style={{ borderColor: selectedAcc === acc.id ? 'var(--text-primary)' : undefined }}>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-primary"
-                        style={{ background: acc.color || 'var(--input-bg)', border: '1px solid var(--card-border)' }}>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: acc.color || 'var(--input-bg)',
+                          border: '1px solid var(--card-border)',
+                          // Dark mode's default icon color (theme green) can nearly vanish against
+                          // some of the CARD_COLORS swatches (e.g. the teal one) — a fixed color
+                          // that doesn't depend on the swatch reads reliably against all of them.
+                          color: acc.color ? (dark ? '#000' : '#fff') : 'var(--text-primary)',
+                        }}>
                         <TypeIcon type={acc.type} size={20} />
                       </div>
                       <div>
