@@ -65,11 +65,12 @@ export default function Goals() {
     load()
   }
 
-  const handleAddProgress = async goalId => {
+  const handleUpdateProgress = async (goalId, mode) => {
     const amt = parseFloat(progressAmt)
     if (!amt || amt <= 0) return
     const goal = goals.find(g => g.id === goalId)
-    const newAmt = (goal.current_amount || 0) + amt
+    const delta = mode === 'remove' ? -amt : amt
+    const newAmt = Math.max(0, (goal.current_amount || 0) + delta)
     await supabase.from('goals').update({ current_amount: newAmt }).eq('id', goalId).eq('user_id', user.id)
     setShowProgress(null); setProgressAmt(''); load()
   }
@@ -157,17 +158,19 @@ export default function Goals() {
                   <p className="text-muted text-xs mb-3">Target: {new Date(goal.target_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                 )}
 
-                {/* Add Progress */}
+                {/* Update Progress */}
                 {showProgress === goal.id ? (
                   <div className="flex gap-2">
-                    <input className="input-field flex-1" type="number" step="0.01" min="0" placeholder="Amount to add" value={progressAmt} onChange={e => setProgressAmt(e.target.value)} autoFocus />
-                    <button onClick={() => handleAddProgress(goal.id)} className="btn-primary px-3 text-sm">Add</button>
+                    <input className="input-field flex-1" type="number" step="0.01" min="0" placeholder="Amount" value={progressAmt} onChange={e => setProgressAmt(e.target.value)} autoFocus />
+                    <button onClick={() => handleUpdateProgress(goal.id, 'add')} className="btn-primary px-3 text-sm">Add</button>
+                    <button onClick={() => handleUpdateProgress(goal.id, 'remove')} className="px-3 text-sm rounded-xl font-semibold transition-colors"
+                      style={{ background: 'var(--negative-bg)', color: 'var(--negative)' }}>Remove</button>
                     <button onClick={() => { setShowProgress(null); setProgressAmt('') }} className="btn-secondary px-3 text-sm"><X size={16} /></button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => setShowProgress(goal.id)} className="py-2.5 rounded-xl border text-sm font-semibold text-primary flex items-center justify-center gap-2 transition-colors" style={{ borderColor: 'var(--card-border)', background: 'var(--input-bg)' }}>
-                      <DollarSign size={16} /> Add Progress
+                      <DollarSign size={16} /> Update Progress
                     </button>
                     <button onClick={() => setProjectOpen(projectOpen === goal.id ? null : goal.id)} className="py-2.5 rounded-xl border text-sm font-semibold text-primary flex items-center justify-center gap-2 transition-colors" style={{ borderColor: 'var(--card-border)', background: projectOpen === goal.id ? 'var(--positive-bg)' : 'var(--input-bg)', color: projectOpen === goal.id ? 'var(--positive)' : undefined }}>
                       <LineChartIcon size={16} /> Project
