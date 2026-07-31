@@ -39,15 +39,22 @@ export default function SwipeableRow({ children, onEdit, onDelete, isLast = fals
   return (
     <div className="relative" style={{ overflow: 'hidden' }}>
       {/* Action buttons, revealed by the swipe — mobile/touch only */}
-      <div className="absolute inset-y-0 right-0 lg:hidden" style={{ width: REVEAL_WIDTH, display: 'flex' }}>
+      <div className="absolute inset-y-0 right-0 lg:hidden flex items-stretch gap-1.5 py-2 pr-2"
+        style={{ width: REVEAL_WIDTH, background: 'var(--card-bg-solid)' }}>
         {onEdit && (
-          <button onClick={() => { onEdit(); close() }} className="flex-1 flex items-center justify-center text-white" style={{ background: 'var(--info)' }} aria-label="Edit">
-            <Pencil size={18} />
+          <button onClick={() => { onEdit(); close() }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl text-white transition-transform active:scale-95"
+            style={{ background: 'var(--info)' }} aria-label="Edit">
+            <Pencil size={16} />
+            <span className="text-[10px] font-bold">Edit</span>
           </button>
         )}
         {onDelete && (
-          <button onClick={() => { onDelete(); close() }} className="flex-1 flex items-center justify-center text-white" style={{ background: '#ef4444' }} aria-label="Delete">
-            <Trash2 size={18} />
+          <button onClick={() => { onDelete(); close() }}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl text-white transition-transform active:scale-95"
+            style={{ background: 'var(--negative)' }} aria-label="Delete">
+            <Trash2 size={16} />
+            <span className="text-[10px] font-bold">Delete</span>
           </button>
         )}
       </div>
