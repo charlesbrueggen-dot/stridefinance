@@ -239,7 +239,7 @@ export default function Dashboard() {
       <SetupChecklist
         storageKey={`stride-checklist-dismissed-${user.id}`}
         items={[
-          { label: 'Add an account', done: accounts.length > 0, path: '/accounts' },
+          { label: 'Import a CSV of past transactions', done: expenseTxns.some(t => t.source_type === 'csv_import') || incomeTxns.some(t => t.source_type === 'csv_import'), path: '/accounts' },
           { label: 'Log income or an expense', done: allIncome.length > 0 || allExpenses.length > 0, path: '/expenses' },
           { label: 'Set a savings goal', done: goals.length > 0, path: '/goals' },
           { label: 'Create a budget', done: budgets.length > 0, path: '/goals' },
