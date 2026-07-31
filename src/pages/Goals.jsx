@@ -154,7 +154,7 @@ export default function Goals() {
                   </div>
                 )}
                 {goal.target_date && (
-                  <p className="text-muted text-xs mb-3">Target: {new Date(goal.target_date + 'T12:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}</p>
+                  <p className="text-muted text-xs mb-3">Target: {new Date(goal.target_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                 )}
 
                 {/* Add Progress */}
