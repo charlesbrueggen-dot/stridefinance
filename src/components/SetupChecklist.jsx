@@ -29,7 +29,7 @@ function Ring({ done, total, size = 44 }) {
   )
 }
 
-export default function SetupChecklist({ storageKey, items }) {
+export default function SetupChecklist({ storageKey, items, title = 'Get set up', subtitle = 'A few quick steps to make Stride useful right away' }) {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === '1')
   const doneCount = items.filter(i => i.done).length
 
@@ -43,8 +43,8 @@ export default function SetupChecklist({ storageKey, items }) {
         <div className="flex items-center gap-3">
           <Ring done={doneCount} total={items.length} />
           <div>
-            <p className="font-black text-primary">Get set up</p>
-            <p className="text-muted text-xs">A few quick steps to make Stride useful right away</p>
+            <p className="font-black text-primary">{title}</p>
+            <p className="text-muted text-xs">{subtitle}</p>
           </div>
         </div>
         <button onClick={dismiss} className="text-muted hover:text-primary flex-shrink-0" aria-label="Dismiss checklist">

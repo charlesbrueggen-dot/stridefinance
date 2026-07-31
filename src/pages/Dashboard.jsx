@@ -19,6 +19,7 @@ import SetupChecklist from '../components/SetupChecklist'
 import InsightsCard from '../components/InsightsCard'
 import { buildInsights } from '../lib/insights'
 import { useSubscriptions, daysUntil } from '../hooks/useSubscriptions'
+import { useIsPro } from '../hooks/useIsPro'
 
 const SAVINGS_RATE_MONTHS = 6
 
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [spendActiveIndex, setSpendActiveIndex] = useState(null)
   const { expenseTxns, incomeTxns, accounts } = useTransactions()
   const { tracked: trackedSubs } = useSubscriptions(user?.id)
+  const { isPro } = useIsPro(user.id)
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const addMenuRef = useRef(null)
   const [viewMonth, setViewMonth] = useState(monthKeyNow())
@@ -237,12 +239,27 @@ export default function Dashboard() {
       <SetupChecklist
         storageKey={`stride-checklist-dismissed-${user.id}`}
         items={[
-          { label: 'Connect or add an account', done: accounts.length > 0, path: '/accounts' },
+          { label: 'Add an account', done: accounts.length > 0, path: '/accounts' },
           { label: 'Log income or an expense', done: allIncome.length > 0 || allExpenses.length > 0, path: '/expenses' },
           { label: 'Set a savings goal', done: goals.length > 0, path: '/goals' },
           { label: 'Create a budget', done: budgets.length > 0, path: '/goals' },
         ]}
       />
+
+      {/* ── UNLOCKED WITH PRO CHECKLIST ── */}
+      {isPro && (
+        <SetupChecklist
+          storageKey={`stride-pro-checklist-dismissed-${user.id}`}
+          title="Unlocked with Pro"
+          subtitle="Now that you're Pro, here's what's new to try"
+          items={[
+            { label: 'Connect your bank automatically', done: accounts.some(a => a.plaid_account_id), path: '/accounts' },
+            { label: 'Try AI-powered CSV categorization', done: expenseTxns.some(t => t.auto_categorized), path: '/accounts' },
+            { label: 'Track a subscription', done: trackedSubs.length > 0, path: '/subscriptions' },
+            { label: 'Ask the AI Coach a question', done: localStorage.getItem(`stride-visited-coach-${user.id}`) === '1', path: '/coach' },
+          ]}
+        />
+      )}
 
       {/* ── MONTH AT A GLANCE ── */}
       <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">

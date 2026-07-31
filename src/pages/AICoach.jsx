@@ -68,6 +68,11 @@ export default function AICoach() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Lets the Dashboard's post-Pro checklist (SetupChecklist) know this Pro feature has been tried.
+  useEffect(() => {
+    if (isPro) localStorage.setItem(`stride-visited-coach-${user.id}`, '1')
+  }, [isPro, user.id])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
