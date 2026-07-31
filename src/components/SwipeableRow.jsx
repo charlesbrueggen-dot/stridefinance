@@ -13,25 +13,34 @@ export default function SwipeableRow({ children, onEdit, onDelete, isLast = fals
   const openRef = useRef(false)
   const startX = useRef(0)
   const draggingRef = useRef(false)
+  const liveXRef = useRef(0)
+  const contentRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
 
   const close = () => { openRef.current = false; setDragX(0) }
 
   const onTouchStart = e => {
     startX.current = e.touches[0].clientX
+    liveXRef.current = dragX
     draggingRef.current = true
     setIsDragging(true)
   }
+  // Mutates the DOM directly instead of going through setState — a state update
+  // (and the re-render it triggers) on every single touchmove event is what made
+  // the drag feel laggy instead of tracking the finger 1:1. Only the resting
+  // position (touchend) goes through React state.
   const onTouchMove = e => {
     if (!draggingRef.current) return
     const delta = e.touches[0].clientX - startX.current
     const base = openRef.current ? -REVEAL_WIDTH : 0
-    setDragX(Math.max(-REVEAL_WIDTH, Math.min(0, base + delta)))
+    const next = Math.max(-REVEAL_WIDTH, Math.min(0, base + delta))
+    liveXRef.current = next
+    if (contentRef.current) contentRef.current.style.transform = `translateX(${next}px)`
   }
   const onTouchEnd = () => {
     draggingRef.current = false
     setIsDragging(false)
-    const shouldOpen = dragX < -SWIPE_THRESHOLD
+    const shouldOpen = liveXRef.current < -SWIPE_THRESHOLD
     openRef.current = shouldOpen
     setDragX(shouldOpen ? -REVEAL_WIDTH : 0)
   }
@@ -59,6 +68,7 @@ export default function SwipeableRow({ children, onEdit, onDelete, isLast = fals
         )}
       </div>
       <div
+        ref={contentRef}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
@@ -71,6 +81,7 @@ export default function SwipeableRow({ children, onEdit, onDelete, isLast = fals
           // background of its own, so without this the reveal buttons behind show
           // through at rest instead of staying hidden until actually swiped open.
           background: 'var(--card-bg-solid)',
+          willChange: 'transform',
         }}
       >
         {children}
