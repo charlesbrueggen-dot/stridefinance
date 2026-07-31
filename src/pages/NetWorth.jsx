@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   Home, Car, Laptop, Gem, Landmark, Banknote, Package,
   CreditCard, TrendingUp, HandCoins, ArrowUpRight, ArrowDownRight,
-  DollarSign, Pencil, Trash2, X,
+  Pencil, Trash2, X,
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../lib/supabase'
@@ -71,15 +71,6 @@ export default function NetWorth() {
   }
 
   // ── Net Worth Calculation ─────────────────────────────────────────────────
-  // Cash from legacy tables
-  const oneTimeExpenses     = expenses.filter(e => !e.recurring).reduce((s, e) => s + e.amount, 0)
-  const legacyCash          = income.reduce((s, i) => s + i.amount, 0) - oneTimeExpenses
-
-  // Account transaction net impact
-  const acctIncomeTotal     = incomeTxns.reduce((s, t) => s + parseFloat(t.amount), 0)
-  const acctExpenseTotal    = expenseTxns.reduce((s, t) => s + parseFloat(t.amount), 0)
-  const acctNetCash         = acctIncomeTotal - acctExpenseTotal
-
   // Account balances
   const acctAssets          = accounts.filter(a => a.type !== 'Credit Card').reduce((s, a) => s + parseFloat(a.balance || 0), 0)
   const acctDebt            = accounts.filter(a => a.type === 'Credit Card').reduce((s, a) => s + parseFloat(a.balance || 0), 0)
@@ -89,8 +80,11 @@ export default function NetWorth() {
   const moneyLent           = loans.filter(l => l.type === 'lent'     && !l.settled).reduce((s, l) => s + l.amount, 0)
   const moneyOwed           = loans.filter(l => l.type === 'borrowed' && !l.settled).reduce((s, l) => s + l.amount, 0)
 
-  // Prefer account balances if they exist, else fall back to income-expense
-  const cashPosition = acctAssets > 0 ? acctAssets + acctNetCash : legacyCash
+  // Cash comes only from real account balances — never a spending-derived estimate. Credit
+  // card overspending already shows up as that account's own debt (acctDebt below), so folding
+  // income-minus-expenses in here too would double-count the same signal. No accounts set up
+  // yet means $0 cash, not a guess.
+  const cashPosition = acctAssets
   const netWorth     = cashPosition + physicalAssets + portValue + moneyLent - moneyOwed - acctDebt
 
   // ── Net worth over time ─────────────────────────────────────────────────
@@ -116,7 +110,6 @@ export default function NetWorth() {
 
   const breakdown = [
     { label: 'Bank Accounts',     value: acctAssets,     Icon: Landmark,   show: acctAssets > 0 },
-    { label: 'Cash & Income Net', value: legacyCash,     Icon: DollarSign, show: acctAssets === 0 },
     { label: 'Credit Card Debt',  value: -acctDebt,      Icon: CreditCard, show: acctDebt > 0, negative: true },
     { label: 'Investments',       value: portValue,      Icon: TrendingUp, show: true },
     { label: 'Physical Assets',   value: physicalAssets, Icon: Package,    show: true },

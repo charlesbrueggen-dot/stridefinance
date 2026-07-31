@@ -110,15 +110,13 @@ export default function Analytics() {
   const physicalAssets = assets.reduce((s, a) => s + a.value, 0)
   const moneyLent      = loans.filter(l => l.type === 'lent'     && !l.settled).reduce((s, l) => s + calcWithInterest(l.amount, l.interest_rate, l.loan_date), 0)
   const moneyOwed      = loans.filter(l => l.type === 'borrowed' && !l.settled).reduce((s, l) => s + calcWithInterest(l.amount, l.interest_rate, l.loan_date), 0)
-  // "Cash" prefers real, connected/manual account balances (the same numbers the Accounts page
-  // shows as Total Assets/Total Debt) over a lifetime income-minus-expenses estimate — the latter
-  // only ever approximates cash on hand, and drifts further from reality the longer someone's
-  // been recording transactions (a year of CSV-imported history can make it wildly wrong). It's
-  // kept as a fallback for anyone tracking income/expenses manually with no accounts set up yet.
-  const usingRealCash  = accounts.length > 0
-  const cashBase       = usingRealCash
-    ? accounts.reduce((s, a) => s + (a.type === 'Credit Card' ? -a.balance : a.balance), 0)
-    : totalIncome - totalExpenses
+  // Cash comes only from real account balances (the same numbers the Accounts page shows as
+  // Total Assets/Total Debt) — never from a lifetime income-minus-expenses estimate. Credit
+  // card overspending already shows up here as that account's own negative/debt balance, so
+  // folding "spending" in separately would double up on the same signal (and drift further
+  // from reality the longer someone's been recording transactions). No accounts set up yet
+  // means $0 cash, not a guess.
+  const cashBase       = accounts.reduce((s, a) => s + (a.type === 'Credit Card' ? -a.balance : a.balance), 0)
   const netWorth       = cashBase + portValue + physicalAssets + moneyLent - moneyOwed
 
   const nwPieData = sortByValueDesc([
@@ -411,7 +409,7 @@ export default function Analytics() {
               <p className="text-4xl font-black" style={{ color: netWorth >= 0 ? 'var(--text-primary)' : 'var(--negative-strong)' }}>{fmt(Math.abs(netWorth))}</p>
               <p className="text-xs text-muted mt-1">
                 {netWorth >= 0 ? 'Positive position' : 'Deficit'}
-                {' · Cash from '}{usingRealCash ? 'connected/manual account balances' : 'recorded income minus expenses (no accounts yet)'}
+                {accounts.length === 0 && ' · Add an account to include cash'}
               </p>
             </div>
             <span className="opacity-30">{netWorth >= 0 ? <ArrowUpRight size={48} /> : <ArrowDownRight size={48} />}</span>
