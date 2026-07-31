@@ -280,9 +280,9 @@ export default function Expenses() {
               <div className="list-row">
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <MerchantLogo name={item.merchant || item.description} FallbackIcon={isAccTxn ? CreditCard : Receipt} size={36} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className="font-bold text-primary text-sm truncate">{item.description}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <p className="font-bold text-primary text-sm truncate flex-1 min-w-0">{item.description}</p>
                       {isRecurring && (
                         <span className="text-xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
                           style={{ background: 'var(--positive-bg)', color: 'var(--positive)' }}>
@@ -318,9 +318,10 @@ export default function Expenses() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <p className="font-black text-sm tnum" style={{ color: 'var(--negative-strong)' }}>-{fmt(item.amount)}</p>
+                  {/* Hidden below lg — swiping the row reveals the same actions there (see SwipeableRow) */}
                   {isOwn && <>
-                    <button onClick={() => openEdit(item)} className="text-muted hover:text-primary transition-colors p-1"><Pencil size={14} /></button>
-                    <button onClick={() => handleDelete(item)} className="transition-colors p-1" style={{ color: 'var(--negative-strong)' }}><Trash2 size={14} /></button>
+                    <button onClick={() => openEdit(item)} className="hidden lg:inline-flex text-muted hover:text-primary transition-colors p-1"><Pencil size={14} /></button>
+                    <button onClick={() => handleDelete(item)} className="hidden lg:inline-flex transition-colors p-1" style={{ color: 'var(--negative-strong)' }}><Trash2 size={14} /></button>
                   </>}
                 </div>
               </div>

@@ -726,9 +726,9 @@ export default function Accounts() {
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <MerchantLogo name={txn.merchant || txn.description} FallbackIcon={KIND_ICON[txn.kind]}
                           fallbackBg={KIND_BG[txn.kind]} fallbackColor={KIND_COLOR[txn.kind]} size={36} />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-sm text-primary truncate">{txn.description}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <p className="font-semibold text-sm text-primary truncate flex-1 min-w-0">{txn.description}</p>
                             {txn.source_type === 'plaid' && (
                               <span className="text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 inline-flex items-center gap-1"
                                 style={{ background: 'var(--positive-bg)', color: 'var(--positive)' }}>
@@ -768,9 +768,10 @@ export default function Accounts() {
                         <p className="font-black text-sm" style={{ color: KIND_STRONG[txn.kind] }}>
                           {txn.kind === 'expense' ? '-' : txn.kind === 'income' ? '+' : ''}{fmt(txn.amount)}
                         </p>
+                        {/* Hidden below lg — swiping the row reveals the same actions there (see SwipeableRow) */}
                         {isOwn && <>
-                          <button onClick={() => openEditTxn(txn)} className="text-muted hover:text-primary"><Pencil size={14} /></button>
-                          <button onClick={() => handleDeleteTxn(txn.id)} className="text-muted hover:text-red-500"><Trash2 size={14} /></button>
+                          <button onClick={() => openEditTxn(txn)} className="hidden lg:inline-flex text-muted hover:text-primary"><Pencil size={14} /></button>
+                          <button onClick={() => handleDeleteTxn(txn.id)} className="hidden lg:inline-flex text-muted hover:text-red-500"><Trash2 size={14} /></button>
                         </>}
                       </div>
                     </div>
