@@ -8,6 +8,11 @@ export const PIE_COLORS_DARK  = ['#10b981','#34d399','#6ee7b7','#a7f3d0','#05966
 
 export const pieColors = dark => (dark ? PIE_COLORS_DARK : PIE_COLORS_LIGHT)
 
+// Recharts' default Tooltip "cursor" for a BarChart is a flat grey/white rectangle spanning
+// the hovered bar's full column — it isn't theme-aware, so it reads as a jarring white flash
+// against this app's colored cards. Pass to <Tooltip cursor={barCursor} /> on any BarChart.
+export const barCursor = { fill: 'var(--input-bg)' }
+
 // Sorts { name, value } pie entries largest-first, so the biggest category is always at the
 // top of any legend/key built from the same data, and slices go largest-to-smallest starting
 // at 12 o'clock — the conventional, most readable pie ordering.

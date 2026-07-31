@@ -17,7 +17,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell
 } from 'recharts'
-import { pieStrokeProps, renderActivePieSector, pieCellOpacity, renderLegend, sortByValueDesc } from '../lib/chartTheme'
+import { pieStrokeProps, renderActivePieSector, pieCellOpacity, renderLegend, sortByValueDesc, barCursor } from '../lib/chartTheme'
 import { fmtCurrency as fmt } from '../lib/format'
 import { calcWithInterest } from '../lib/loanMath'
 import { bucketMonthlyTotals, computeSavingsRate, bucketDailyTotals, rollingSavingsRate } from '../lib/savingsRate'
@@ -96,9 +96,9 @@ export default function Analytics() {
     () => bucketDailyTotals(allIncome, allExpenses, days),
     [allIncome, allExpenses, days]
   )
-  // Cap shown x-axis labels at ~8 regardless of range length so a year of daily points
-  // doesn't render 365 overlapping ticks.
-  const dailyTickInterval = Math.max(0, Math.ceil(dailyData.length / 8) - 1)
+  // Cap shown x-axis labels at ~5 regardless of range length so a year of daily points
+  // doesn't render 365 overlapping ticks — 8 was still cramped on narrower/mobile widths.
+  const dailyTickInterval = Math.max(0, Math.ceil(dailyData.length / 5) - 1)
 
   // ── Summary numbers ───────────────────────────────────────────────────────
   const totalIncome   = allIncome.reduce((s, i) => s + parseFloat(i.amount), 0)
@@ -267,7 +267,7 @@ export default function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
                 <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
-                <Tooltip contentStyle={tooltipStyle} itemStyle={cellTooltipItemStyle} labelStyle={cellTooltipLabelStyle} formatter={v => fmt(v)} />
+                <Tooltip contentStyle={tooltipStyle} itemStyle={cellTooltipItemStyle} labelStyle={cellTooltipLabelStyle} formatter={v => fmt(v)} cursor={barCursor} />
                 <Bar dataKey="net" name="Net" radius={[4,4,0,0]}>
                   {chartData.map((m, i) => <Cell key={i} fill={m.net >= 0 ? lineColorIncome : lineColorExp} />)}
                 </Bar>
@@ -394,7 +394,7 @@ export default function Analytics() {
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
                 <XAxis dataKey="label" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
-                <Tooltip contentStyle={tooltipStyle} formatter={v => fmt(v)} />
+                <Tooltip contentStyle={tooltipStyle} formatter={v => fmt(v)} cursor={barCursor} />
                 <Bar dataKey="expenses" name="Spending" fill={lineColorExp} radius={[4,4,0,0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -505,7 +505,7 @@ export default function Analytics() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--card-border)" />
                   <XAxis dataKey="name" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtShort} />
-                  <Tooltip contentStyle={tooltipStyle} itemStyle={cellTooltipItemStyle} labelStyle={cellTooltipLabelStyle} formatter={v => fmt(v)} />
+                  <Tooltip contentStyle={tooltipStyle} itemStyle={cellTooltipItemStyle} labelStyle={cellTooltipLabelStyle} formatter={v => fmt(v)} cursor={barCursor} />
                   <Bar dataKey="amount" name="Amount" radius={[4,4,0,0]}>
                     {activeLoans.map((l, i) => <Cell key={i} fill={l.type === 'lent' ? '#10b981' : '#ef4444'} />)}
                   </Bar>
